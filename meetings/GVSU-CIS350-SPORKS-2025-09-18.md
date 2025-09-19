@@ -14,6 +14,7 @@ Discussion points:
 - Make sure everyone’s repositories are properly set up
 - A little bit of further talks on specific features of the program. Stored in the file “proposal”
 - Potential points system/flagging system for the manager during scheduling.
+
   Technologies
   - VS Code preferred IDE
   - Preferred language: Python
