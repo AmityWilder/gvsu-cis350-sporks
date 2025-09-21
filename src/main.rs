@@ -1,4 +1,13 @@
 #![deny(clippy::undocumented_unsafe_blocks, clippy::missing_safety_doc)]
+#![deny(
+    clippy::panic,
+    // clippy::todo,
+    clippy::unimplemented,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::unreachable,
+    reason = "production code shouldn't panic"
+)]
 
 use chrono::prelude::*;
 use colored::Colorize;
@@ -16,11 +25,23 @@ use std::{
 };
 use thiserror::Error;
 
+/// Code uniquely identifying a user
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 struct UserId(u32);
 
+/// Code uniquely identifying a task
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 struct TaskId(u64);
+
+/// Code uniquely identifying a skill - used to determine which users *can* be scheduled on a task
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+struct SkillId(u32);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Skill {
+    pub name: String,
+    pub desc: String,
+}
 
 /// Preference/opposition score.
 ///
@@ -68,6 +89,12 @@ struct TaskId(u64);
 ///
 /// **ex:** restraining order, history of harassment
 type Preference = f32;
+
+/// Level of skill
+///
+/// 1.0 = skill of one user with baseline skill.
+/// Can be multiplied by number of users.
+type Proficiency = f32;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 struct TimeInterval(pub Range<DateTime<Utc>>);
@@ -211,6 +238,59 @@ struct User {
     /// - "doesn't like Brian"
     /// - "works better when Sally is there"
     pub user_prefs: HashMap<UserId, Preference>,
+
+    pub skills: HashMap<SkillId, Proficiency>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProficiencyReq {
+    pub target: Proficiency,
+    pub soft_min: Proficiency,
+    pub soft_max: Proficiency,
+    pub hard_min: Proficiency,
+    pub hard_max: Proficiency,
+}
+
+impl ProficiencyReq {
+    pub fn new<R1, R2>(target: Proficiency, soft_range: R1, hard_range: R2) -> Option<Self>
+    where
+        R1: std::ops::RangeBounds<Proficiency>,
+        R2: std::ops::RangeBounds<Proficiency>,
+    {
+        trait BoundExt<T> {
+            fn get(self) -> Option<T>;
+        }
+
+        impl<T: Copy> BoundExt<T> for std::ops::Bound<&T> {
+            fn get(self) -> Option<T> {
+                match self {
+                    std::ops::Bound::Included(x) | std::ops::Bound::Excluded(x) => Some(*x),
+                    std::ops::Bound::Unbounded => None,
+                }
+            }
+        }
+
+        fn range_to_vals(range: impl std::ops::RangeBounds<f32>) -> (f32, f32) {
+            (
+                range.start_bound().get().unwrap_or(f32::NEG_INFINITY),
+                range.end_bound().get().unwrap_or(f32::INFINITY),
+            )
+        }
+
+        let (hard_min, hard_max) = range_to_vals(hard_range);
+        let (soft_min, soft_max) = range_to_vals(soft_range);
+        (hard_min <= soft_min && soft_max <= hard_max).then_some(Self {
+            target,
+            soft_min,
+            soft_max,
+            hard_min,
+            hard_max,
+        })
+    }
+
+    pub fn score(&self, value: Proficiency) -> f32 {
+        todo!()
+    }
 }
 
 /// A product or service to be completed.
@@ -218,7 +298,18 @@ struct User {
 struct Task {
     pub title: String,
     pub desc: String,
+
+    /// Skills required to perform the task
+    ///
+    /// Optimize covering with users whose combined capability equals the float provided (maxed out at 1.0 per individual)
+    /// Prefer to overshoot (except in great excess, like 200+%) rather than undershoot, but prioritizing closer matches.
+    pub skills: HashMap<SkillId, ProficiencyReq>,
+
+    /// [`None`]: Task has no "completion" state.
     pub deadline: Option<DateTime<Utc>>,
+
+    /// Tasks that must be completed before this one can be scheduled
+    /// (estimated by deadlines).
     pub awaiting: HashSet<TaskId>,
 }
 
@@ -271,16 +362,6 @@ struct CmdLineData {
 
 /// Parse command line arguments for data.
 fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
-    #![deny(
-        clippy::panic,
-        clippy::todo,
-        clippy::unimplemented,
-        clippy::unwrap_used,
-        clippy::expect_used,
-        clippy::unreachable,
-        reason = "only errors in this fn pretty please"
-    )]
-
     const USERS_PATH_DEFAULT: &str = "./users.json";
     const SLOTS_PATH_DEFAULT: &str = "./slots.json";
     const TASKS_PATH_DEFAULT: &str = "./tasks.json";
