@@ -198,36 +198,18 @@ struct User {
     /// Can be changed without changing the user's ID.
     pub name: String,
 
-    /// Rules regarding when the user can or can't be scheduled.
+    /// Preferences regarding times the user can or can't be scheduled.
     ///
     /// Ex:
     /// - "available every Monday 3pm-7pm",
     /// - "never available on Fridays"
     pub availability: BTreeMap<TimeInterval, Preference>,
 
-    /// Scale of -1.0..=1.0 for preference towards other users.
+    /// Preference towards sharing slots with other users.
     ///
-    /// # Range
-    ///
-    /// [`f32::INFINITY`]:
-    ///     **Always** schedule together (ex: handler).
-    ///     If unable to be scheduled *together*, **do not schedule *this* user (`self`).**
-    ///
-    /// `1.0`:
-    ///     Maximize scheduling together.
-    ///     Only schedule separately if no other option.
-    ///
-    /// `0.0`:
-    ///     No preference
-    ///     (equivalent to not being listed at all; which should be preferred for storage reasons)
-    ///
-    /// `-1.0`:
-    ///     Minimize scheduling together.
-    ///     Only schedule together if no other option.
-    ///
-    /// [`f32::NEG_INFINITY`]:
-    ///     **Never** schedule together (ex: restraining order).
-    ///     If unable to be scheduled *separately*, **do not schedule *that* user (user in map).**
+    /// Ex:
+    /// - "doesn't like Brian"
+    /// - "works better when Sally is there"
     pub user_prefs: HashMap<UserId, Preference>,
 }
 
