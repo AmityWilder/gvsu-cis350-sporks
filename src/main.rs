@@ -315,24 +315,21 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
 
             Long("help") => {
                 println!(
-                    "{} {} {}",
+                    "{0} {1} {2}\
+                    \n\
+                    \n{3}\
+                    \n  {4}, {7} {11}  Provide path to user data file, otherwise default to {USERS_PATH_DEFAULT}\
+                    \n  {5}, {8} {11}  Provide path to slot data file, otherwise default to {SLOTS_PATH_DEFAULT}\
+                    \n  {6}, {9} {11}  Provide path to task data file, otherwise default to {TASKS_PATH_DEFAULT}\
+                    \n      {10}          Display this message",
                     "Usage:".bold().bright_green(),
                     parser
                         .bin_name()
                         .unwrap_or("gvsu-cis350-sporks")
                         .bold()
                         .bright_cyan(),
-                    "[OPTIONS]".cyan()
-                );
-                println!();
-                println!(
-                    "{0}\
-                    \n  {2}, {5} {1}  Provide path to user data file, otherwise default to {USERS_PATH_DEFAULT}\
-                    \n  {3}, {6} {1}  Provide path to slot data file, otherwise default to {SLOTS_PATH_DEFAULT}\
-                    \n  {4}, {7} {1}  Provide path to task data file, otherwise default to {TASKS_PATH_DEFAULT}\
-                    \n      {8}          Display this message",
+                    "[OPTIONS]".cyan(),
                     "Options:".bold().bright_green(),
-                    "<PATH>".cyan(),
                     "-u".bold().bright_cyan(),
                     "-s".bold().bright_cyan(),
                     "-t".bold().bright_cyan(),
@@ -340,6 +337,7 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
                     "--slots".bold().bright_cyan(),
                     "--tasks".bold().bright_cyan(),
                     "--help".bold().bright_cyan(),
+                    "<PATH>".cyan(),
                 );
                 std::process::exit(0);
             }
