@@ -334,10 +334,15 @@ struct User {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct ProficiencyReq {
+    /// The ideal proficiency
     pub target: Proficiency,
+    /// The lower bound of the target - try to stay above this
     pub soft_min: Proficiency,
+    /// The upper bound of the target - try to stay below this
     pub soft_max: Proficiency,
+    /// The lower bound - reject any solution below this
     pub hard_min: Proficiency,
+    /// The upper bound - reject any solution above this
     pub hard_max: Proficiency,
 }
 
@@ -378,10 +383,6 @@ impl ProficiencyReq {
             hard_min,
             hard_max,
         })
-    }
-
-    pub fn score(&self, value: Proficiency) -> f32 {
-        todo!()
     }
 }
 
