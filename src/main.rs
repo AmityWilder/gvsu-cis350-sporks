@@ -45,7 +45,7 @@ pub struct Skill {
 
 /// Preference/opposition score.
 ///
-/// Range: `-INF, -1.0..=+1.0, INF`
+/// Range: `-inf, -1.0..=1.0, inf`
 ///
 /// Infinities should be reserved for cases where failure to meet the requirement
 /// would cause legal or other undesireable problems and should be *hard*-rejected.
@@ -63,7 +63,7 @@ pub struct Skill {
 /// ## `-1.0`
 /// Minimize scheduling. Only do otherwise if no other option.
 ///
-/// ## [`+INF`](`f32::INFINITY`)
+/// ## [`+inf`](`f32::INFINITY`)
 /// **Always** schedule.
 ///
 /// ### Towards time
@@ -76,7 +76,7 @@ pub struct Skill {
 ///
 /// **ex:** handler
 ///
-/// ## [`-INF`](`f32::NEG_INFINITY`)
+/// ## [`-inf`](`f32::NEG_INFINITY`)
 /// **Never** schedule.
 ///
 /// ### Towards time
@@ -88,13 +88,95 @@ pub struct Skill {
 /// If unable to be scheduled *separately*, **do not schedule *that* user.**
 ///
 /// **ex:** restraining order, history of harassment
-type Preference = f32;
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default, Serialize, Deserialize)]
+struct Preference(f32);
+
+impl std::fmt::Display for Preference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.0.is_infinite() {
+            write!(f, "{}inf", b"+-"[self.0.is_sign_negative() as usize])
+        } else if self.0.is_nan() {
+            f.write_str("NaN")
+        } else {
+            write!(f, "{}%", self.0 * 100.0)
+        }
+    }
+}
+
+impl std::ops::Deref for Preference {
+    type Target = f32;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for Preference {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Preference {
+    pub const INFINITY: Self = Self(f32::INFINITY);
+    pub const NEG_INFINITY: Self = Self(f32::NEG_INFINITY);
+    pub const MIN: Self = Self(-1.0);
+    pub const MAX: Self = Self(1.0);
+
+    /// Clamp to `-inf, 0.0..=1.0, +inf`
+    pub const fn saturate(self) -> Self {
+        if self.0.is_infinite() {
+            self
+        } else {
+            Self(self.0.clamp(Self::MIN.0, Self::MAX.0))
+        }
+    }
+}
 
 /// Level of skill
 ///
+/// 0.0 = no skill.
 /// 1.0 = skill of one user with baseline skill.
 /// Can be multiplied by number of users.
-type Proficiency = f32;
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default, Serialize, Deserialize)]
+struct Proficiency(f32);
+
+impl std::fmt::Display for Proficiency {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.0.is_infinite() {
+            write!(f, "{}inf", b"+-"[self.0.is_sign_negative() as usize])
+        } else if self.0.is_nan() {
+            f.write_str("NaN")
+        } else {
+            write!(f, "{}%", self.0 * 100.0)
+        }
+    }
+}
+
+impl std::ops::Deref for Proficiency {
+    type Target = f32;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for Proficiency {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Proficiency {
+    pub const ZERO: Self = Self(0.0);
+    pub const ONE: Self = Self(1.0);
+    pub const MIN: Self = Self::ZERO;
+    pub const MAX: Self = Self(f32::MAX);
+
+    pub const fn saturate(self) -> Self {
+        Self(self.0.clamp(Self::MIN.0, Self::MAX.0))
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 struct TimeInterval(pub Range<DateTime<Utc>>);
@@ -243,7 +325,7 @@ struct User {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ProficiencyReq {
+struct ProficiencyReq {
     pub target: Proficiency,
     pub soft_min: Proficiency,
     pub soft_max: Proficiency,
@@ -270,10 +352,12 @@ impl ProficiencyReq {
             }
         }
 
-        fn range_to_vals(range: impl std::ops::RangeBounds<f32>) -> (f32, f32) {
+        fn range_to_vals(
+            range: impl std::ops::RangeBounds<Proficiency>,
+        ) -> (Proficiency, Proficiency) {
             (
-                range.start_bound().get().unwrap_or(f32::NEG_INFINITY),
-                range.end_bound().get().unwrap_or(f32::INFINITY),
+                range.start_bound().get().unwrap_or(Proficiency::MIN),
+                range.end_bound().get().unwrap_or(Proficiency::MAX),
             )
         }
 
