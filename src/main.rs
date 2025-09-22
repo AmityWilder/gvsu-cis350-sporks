@@ -434,7 +434,7 @@ enum ArgsError {
     #[error("filesystem error")]
     IOError(#[from] std::io::Error),
     #[error("data should only be provided once")]
-    DataReassigned,
+    DuplicateArg,
 }
 
 #[derive(Debug)]
@@ -442,6 +442,7 @@ struct CmdLineData {
     pub users_path: PathBuf,
     pub slots_path: PathBuf,
     pub tasks_path: PathBuf,
+    pub output_path: PathBuf,
 }
 
 /// Parse command line arguments for data.
@@ -456,11 +457,15 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
         (task) => {
             "./tasks.json"
         };
+        (output) => {
+            "./schedule.json"
+        };
     }
 
     let mut users_path = None;
     let mut slots_path = None;
     let mut tasks_path = None;
+    let mut output_path = None;
 
     while let Some(arg) = parser.next()? {
         match arg {
@@ -468,21 +473,28 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
                 if users_path.is_none() {
                     users_path = Some(PathBuf::from(parser.value()?));
                 } else {
-                    Err(ArgsError::DataReassigned)?
+                    Err(ArgsError::DuplicateArg)?
                 }
             }
             Short('s') | Long("slots") => {
                 if slots_path.is_none() {
                     slots_path = Some(PathBuf::from(parser.value()?));
                 } else {
-                    Err(ArgsError::DataReassigned)?
+                    Err(ArgsError::DuplicateArg)?
                 }
             }
             Short('t') | Long("tasks") => {
                 if tasks_path.is_none() {
                     tasks_path = Some(PathBuf::from(parser.value()?));
                 } else {
-                    Err(ArgsError::DataReassigned)?
+                    Err(ArgsError::DuplicateArg)?
+                }
+            }
+            Short('o') | Long("output") => {
+                if output_path.is_none() {
+                    output_path = Some(PathBuf::from(parser.value()?));
+                } else {
+                    Err(ArgsError::DuplicateArg)?
                 }
             }
 
@@ -573,7 +585,7 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
                 static USAGES: [&[(bool, &str)]; 1] =
                     [&[(true, "gvsu-cis350-sporks"), (false, "[OPTIONS]")]];
 
-                static OPTIONS: [RunOption; 4] = [
+                static OPTIONS: [RunOption; 5] = [
                     // --users
                     RunOption::new(concat!(
                         "Provide path to user data file, otherwise default to ",
@@ -597,6 +609,14 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
                     ))
                     .short('t')
                     .long("tasks")
+                    .values(&[Value::new("PATH")]),
+                    // --output
+                    RunOption::new(concat!(
+                        "Provide path to output schedule to, otherwise default to ",
+                        default_path!(output)
+                    ))
+                    .short('o')
+                    .long("output")
                     .values(&[Value::new("PATH")]),
                     // --help
                     RunOption::new("Display this message").long("help"),
@@ -680,6 +700,7 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
         users_path: users_path.unwrap_or_else(|| PathBuf::from(default_path!(user))),
         slots_path: slots_path.unwrap_or_else(|| PathBuf::from(default_path!(slot))),
         tasks_path: tasks_path.unwrap_or_else(|| PathBuf::from(default_path!(task))),
+        output_path: output_path.unwrap_or_else(|| PathBuf::from(default_path!(output))),
     })
 }
 
@@ -689,6 +710,7 @@ fn inner_main() -> Result<(), Box<dyn std::error::Error>> {
         users_path,
         slots_path,
         tasks_path,
+        output_path,
     } = get_data(lexopt::Parser::from_env())?;
 
     fn load_from_path<T>(path: impl AsRef<Path>) -> Result<T, Box<dyn std::error::Error>>
@@ -703,8 +725,7 @@ fn inner_main() -> Result<(), Box<dyn std::error::Error>> {
     let tasks = load_from_path::<HashMap<TaskId, Task>>(tasks_path)?;
 
     let schedule = Schedule::generate(&dbg!(slots), &dbg!(tasks), &dbg!(users))?;
-
-    dbg!(schedule);
+    serde_json::to_writer(File::create(output_path)?, &dbg!(schedule))?;
 
     Ok(())
 }
