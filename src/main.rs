@@ -1,3 +1,7 @@
+//! # gvsu-cis350-sporks
+//!
+//! A management scheduling application (generator end; executed by backend)
+
 #![forbid(
     clippy::undocumented_unsafe_blocks,
     clippy::missing_safety_doc,
@@ -12,6 +16,7 @@
     clippy::unreachable,
     reason = "prefer errors over panicking"
 )]
+#![warn(missing_docs)]
 #![cfg_attr(
     not(debug_assertions),
     forbid(clippy::todo, reason = "production code should not use `todo`")
@@ -35,19 +40,22 @@ use thiserror::Error;
 
 /// Code uniquely identifying a user
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-struct UserId(u32);
+pub struct UserId(u32);
 
 /// Code uniquely identifying a task
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-struct TaskId(u64);
+pub struct TaskId(u64);
 
 /// Code uniquely identifying a skill - used to determine which users *can* be scheduled on a task
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-struct SkillId(u32);
+pub struct SkillId(u32);
 
+/// Metadata regarding a skill
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Skill {
+    /// Display name of the skill
     pub name: String,
+    /// Description of the skill
     pub desc: String,
 }
 
@@ -97,7 +105,7 @@ pub struct Skill {
 ///
 /// **ex:** restraining order, history of harassment
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default, Serialize, Deserialize)]
-struct Preference(f32);
+pub struct Preference(f32);
 
 impl std::fmt::Display for Preference {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -126,9 +134,13 @@ impl std::ops::DerefMut for Preference {
 }
 
 impl Preference {
+    /// Mandatory
     pub const INFINITY: Self = Self(f32::INFINITY);
+    /// Forbidden
     pub const NEG_INFINITY: Self = Self(f32::NEG_INFINITY);
+    /// Maximum (100%) refusal
     pub const MIN: Self = Self(-1.0);
+    /// Maximum (100%) preference
     pub const MAX: Self = Self(1.0);
 
     /// Clamp to `-inf, 0.0..=1.0, +inf`
@@ -147,7 +159,7 @@ impl Preference {
 /// 1.0 = skill of one user with baseline skill.
 /// Can be multiplied by number of users.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default, Serialize, Deserialize)]
-struct Proficiency(f32);
+pub struct Proficiency(f32);
 
 impl std::fmt::Display for Proficiency {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -176,11 +188,16 @@ impl std::ops::DerefMut for Proficiency {
 }
 
 impl Proficiency {
+    /// No proficiency
     pub const ZERO: Self = Self(0.0);
+    /// Baseline proficiency
     pub const ONE: Self = Self(1.0);
+    /// Alias for [`Self::ZERO`]
     pub const MIN: Self = Self::ZERO;
+    /// Alias for [`f32::MAX`]
     pub const MAX: Self = Self(f32::MAX);
 
+    /// Clamp between [`Self::MIN`] and [`Self::MAX`]
     pub const fn saturate(self) -> Self {
         Self(self.0.clamp(Self::MIN.0, Self::MAX.0))
     }
@@ -332,8 +349,9 @@ struct User {
     pub skills: HashMap<SkillId, Proficiency>,
 }
 
+/// Proficiency requirements for a skill on a [`Task`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct ProficiencyReq {
+pub struct ProficiencyReq {
     /// The ideal proficiency
     pub target: Proficiency,
     /// The lower bound of the target - try to stay above this
@@ -347,6 +365,7 @@ struct ProficiencyReq {
 }
 
 impl ProficiencyReq {
+    /// Construct a new [`ProficiencyReq`] from ideal and ranges.
     pub fn new<R1, R2>(target: Proficiency, soft_range: R1, hard_range: R2) -> Option<Self>
     where
         R1: std::ops::RangeBounds<Proficiency>,
@@ -423,6 +442,9 @@ struct Schedule {
     pub slots: Vec<(Slot, HashSet<TaskId>, HashSet<UserId>)>,
 }
 
+/// Error generated while attempting to create a schedule.
+///
+/// Requires prompting manager to resolve.
 #[derive(Debug, Error)]
 pub enum SchedulingError {}
 
@@ -436,12 +458,18 @@ impl Schedule {
     }
 }
 
+/// Error while trying to read command-line arguments.
+///
+/// Not currently recoverable.
 #[derive(Debug, Error)]
-enum ArgsError {
+pub enum ArgsError {
+    /// Error reading arguments
     #[error("argument error")]
     LexoptError(#[from] lexopt::Error),
+    /// Error involving filesystem
     #[error("filesystem error")]
     IOError(#[from] std::io::Error),
+    /// Repetition of argument that should not be repeated
     #[error("data should only be provided once")]
     DuplicateArg,
 }
@@ -741,15 +769,19 @@ fn inner_main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+fn printerr(e: &dyn std::error::Error) {
+    let mut err = Some(e);
+    let mut i = 0;
+    while let Some(e) = err {
+        eprintln!("{:indent$}{e}", "", indent = i);
+        i += 2;
+        err = e.source();
+    }
+}
+
 fn main() {
     if let Err(e) = inner_main() {
-        let mut err: Option<&dyn std::error::Error> = Some(e.as_ref());
-        let mut i = 0;
-        while let Some(e) = err {
-            eprintln!("{:indent$}{e}", "", indent = i);
-            i += 2;
-            err = e.source();
-        }
+        printerr(e.as_ref());
         std::process::exit(1);
     }
 }
