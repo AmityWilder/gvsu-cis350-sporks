@@ -498,7 +498,7 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
                 }
             }
 
-            Long("help") => {
+            Short('h') | Long("help") => {
                 #[derive(Debug, Default)]
                 struct Value<'a> {
                     /// should be uppercase
@@ -619,7 +619,9 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
                     .long("output")
                     .values(&[Value::new("PATH")]),
                     // --help
-                    RunOption::new("Display this message").long("help"),
+                    RunOption::new("Display this message")
+                        .short('h')
+                        .long("help"),
                 ];
 
                 print!("{}", "Usage:".bold().bright_green());
