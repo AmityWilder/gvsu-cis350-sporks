@@ -10,7 +10,7 @@
 )]
 
 use chrono::prelude::*;
-use colored::Colorize;
+use colored::{ColoredString, Colorize};
 use lexopt::prelude::*;
 use serde::{
     Deserialize, Serialize,
@@ -479,31 +479,179 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
             }
 
             Long("help") => {
-                println!(
-                    "{0} {1} {2}\
-                    \n\
-                    \n{3}\
-                    \n  {4}, {7} {11}  Provide path to user data file, otherwise default to {USERS_PATH_DEFAULT}\
-                    \n  {5}, {8} {11}  Provide path to slot data file, otherwise default to {SLOTS_PATH_DEFAULT}\
-                    \n  {6}, {9} {11}  Provide path to task data file, otherwise default to {TASKS_PATH_DEFAULT}\
-                    \n      {10}          Display this message",
-                    "Usage:".bold().bright_green(),
-                    parser
-                        .bin_name()
-                        .unwrap_or("gvsu-cis350-sporks")
-                        .bold()
-                        .bright_cyan(),
-                    "[OPTIONS]".cyan(),
-                    "Options:".bold().bright_green(),
-                    "-u".bold().bright_cyan(),
-                    "-s".bold().bright_cyan(),
-                    "-t".bold().bright_cyan(),
-                    "--users".bold().bright_cyan(),
-                    "--slots".bold().bright_cyan(),
-                    "--tasks".bold().bright_cyan(),
-                    "--help".bold().bright_cyan(),
-                    "<PATH>".cyan(),
-                );
+                use std::sync::LazyLock;
+
+                #[derive(Debug, Default)]
+                struct Value<'a> {
+                    /// should be uppercase
+                    pub name: &'a str,
+                    /// `[NAME]` instead of `<NAME>`
+                    pub optional: bool,
+                    /// `...`
+                    pub variadic: bool,
+                }
+
+                impl std::fmt::Display for Value<'_> {
+                    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        let name = self.name;
+                        let (open, close) = if self.optional {
+                            ('[', ']')
+                        } else {
+                            ('<', '>')
+                        };
+                        let trail = if self.variadic { "..." } else { "" };
+                        write!(f, "{open}{name}{close}{trail}")
+                    }
+                }
+
+                impl<'a> Value<'a> {
+                    pub fn new(name: &'a str) -> Self {
+                        Self {
+                            name,
+                            ..Default::default()
+                        }
+                    }
+
+                    pub fn _optional(mut self) -> Self {
+                        self.optional = true;
+                        self
+                    }
+
+                    pub fn _variadic(mut self) -> Self {
+                        self.variadic = true;
+                        self
+                    }
+
+                    pub const fn len(&self) -> usize {
+                        self.name.len()
+                            + if self.optional { "[]" } else { "<>" }.len()
+                            + if self.variadic { "..." } else { "" }.len()
+                    }
+                }
+
+                #[derive(Debug, Default)]
+                struct RunOption<'a> {
+                    pub short: Option<char>,
+                    pub long: Option<&'a str>,
+                    pub vals: Vec<Value<'a>>,
+                    pub msg: String,
+                }
+
+                impl<'a> RunOption<'a> {
+                    pub fn new<S: ToString>(msg: S) -> Self {
+                        Self {
+                            msg: msg.to_string(),
+                            ..Default::default()
+                        }
+                    }
+
+                    pub fn short(mut self, ch: char) -> Self {
+                        self.short = Some(ch);
+                        self
+                    }
+
+                    pub fn long(mut self, s: &'a str) -> Self {
+                        self.long = Some(s);
+                        self
+                    }
+
+                    pub fn value(mut self, value: Value<'a>) -> Self {
+                        self.vals.push(value);
+                        self
+                    }
+                }
+
+                static USAGES: [&[(bool, &str)]; 1] =
+                    [&[(true, "gvsu-cis350-sporks"), (false, "[OPTIONS]")]];
+
+                static OPTIONS: LazyLock<[RunOption; 4]> = LazyLock::new(|| {
+                    [
+                        RunOption::new(format_args!("Provide path to user data file, otherwise default to {USERS_PATH_DEFAULT}"))
+                            .short('u')
+                            .long("users")
+                            .value(Value::new("PATH")),
+
+                        RunOption::new(format_args!("Provide path to slot data file, otherwise default to {SLOTS_PATH_DEFAULT}"))
+                            .short('s')
+                            .long("slots")
+                            .value(Value::new("PATH")),
+
+                        RunOption::new(format_args!("Provide path to task data file, otherwise default to {TASKS_PATH_DEFAULT}"))
+                            .short('t')
+                            .long("tasks")
+                            .value(Value::new("PATH")),
+
+                        RunOption::new("Display this message").long("help"),
+                    ]
+                });
+
+                print!("{}", "Usage:".bold().bright_green());
+                for usage in USAGES {
+                    for (bold, text) in usage {
+                        print!(
+                            " {}",
+                            if *bold {
+                                text.bright_cyan().bold()
+                            } else {
+                                text.cyan()
+                            }
+                        );
+                    }
+                    println!();
+                    print!("{:indent$}", "", indent = "Usage:".len());
+                }
+                println!();
+
+                println!("{}", "Options:".bold().bright_green());
+
+                let longest_short = if OPTIONS.iter().any(|opt| opt.short.is_some()) {
+                    "-*".len()
+                } else {
+                    0
+                };
+
+                let longest_long = OPTIONS
+                    .iter()
+                    .map(|opt| opt.long)
+                    .filter_map(|x| x.map(|x| "--".len() + x.len()))
+                    .max()
+                    .unwrap_or(0);
+
+                let longest_args = OPTIONS
+                    .iter()
+                    .map(|opt| opt.vals.as_slice())
+                    .filter(|x| !x.is_empty())
+                    .map(|vals| vals.iter().map(|s| s.len() + " ".len()).sum::<usize>())
+                    .max()
+                    .unwrap_or(0);
+
+                for option in &*OPTIONS {
+                    print!(
+                        "  {:>short_width$}{} {:<long_width$} {:<args_width$} {}",
+                        option.short.map_or_else(
+                            || "".normal(),
+                            |ch| format!("-{ch}").bold().bright_cyan()
+                        ),
+                        if option.short.is_some() { ',' } else { ' ' },
+                        option
+                            .long
+                            .map_or_else(|| "".normal(), |s| format!("--{s}").bold().bright_cyan()),
+                        option
+                            .vals
+                            .iter()
+                            // I know this isn't the same as `join`.
+                            // The trailing space is desired and this saves allocations.
+                            .map(|v| format!("{v} "))
+                            .collect::<String>()
+                            .cyan(),
+                        option.msg,
+                        short_width = longest_short,
+                        long_width = longest_long,
+                        args_width = longest_args,
+                    );
+                    println!();
+                }
+
                 std::process::exit(0);
             }
 
