@@ -519,12 +519,12 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
                         }
                     }
 
-                    pub const fn _optional(mut self) -> Self {
+                    pub const fn optional(mut self) -> Self {
                         self.optional = true;
                         self
                     }
 
-                    pub const fn _variadic(mut self) -> Self {
+                    pub const fn variadic(mut self) -> Self {
                         self.variadic = true;
                         self
                     }
