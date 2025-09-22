@@ -1,6 +1,8 @@
 //! # gvsu-cis350-sporks
 //!
 //! A management scheduling application (generator end; executed by backend)
+//!
+//! This program is the scheduling server run by the backend.
 
 #![forbid(
     clippy::undocumented_unsafe_blocks,
@@ -30,9 +32,10 @@ use serde::{
     de::{DeserializeOwned, Visitor},
 };
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, HashMap, HashSet},
     fs::File,
-    io::BufReader,
+    io::{BufReader, stdin},
     ops::Range,
     path::{Path, PathBuf},
 };
@@ -496,7 +499,11 @@ pub struct Schedule {
 ///
 /// Requires prompting manager to resolve.
 #[derive(Debug, Error)]
-pub enum SchedulingError {}
+pub enum SchedulingError {
+    /// Other errors
+    #[error("{0}")]
+    Other(Cow<'static, str>),
+}
 
 impl Schedule {
     /// Generate a schedule based on the provided requirements.
@@ -505,7 +512,7 @@ impl Schedule {
         _tasks: &HashMap<TaskId, Task>,
         _users: &HashMap<UserId, User>,
     ) -> Result<Self, SchedulingError> {
-        todo!()
+        Err(SchedulingError::Other(Cow::Borrowed("not yet implemented")))
     }
 }
 
@@ -819,10 +826,22 @@ fn inner_main() -> Result<(), Box<dyn std::error::Error>> {
     let slots = load_from_path::<Vec<Slot>>(slots_path)?;
     let tasks = load_from_path::<HashMap<TaskId, Task>>(tasks_path)?;
 
-    let schedule = Schedule::generate(&dbg!(slots), &dbg!(tasks), &dbg!(users))?;
-    serde_json::to_writer(File::create(output_path)?, &dbg!(schedule))?;
+    // let schedule = Schedule::generate(&dbg!(slots), &dbg!(tasks), &dbg!(users))?;
+    // serde_json::to_writer(File::create(output_path)?, &dbg!(schedule))?;
 
-    Ok(())
+    let mut buf = String::new();
+    loop {
+        buf.clear();
+        stdin().read_line(&mut buf)?;
+        let mut parser =
+            lexopt::Parser::from_iter(std::iter::once("").chain(buf.split_whitespace()));
+        while let Some(arg) = parser.next()? {
+            match arg {
+                Long("exit") => return Ok(()),
+                _ => Err(arg.unexpected())?,
+            }
+        }
+    }
 }
 
 /// Recursively print the error and its sources
