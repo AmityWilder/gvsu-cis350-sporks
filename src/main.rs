@@ -446,9 +446,17 @@ struct CmdLineData {
 
 /// Parse command line arguments for data.
 fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
-    const USERS_PATH_DEFAULT: &str = "./users.json";
-    const SLOTS_PATH_DEFAULT: &str = "./slots.json";
-    const TASKS_PATH_DEFAULT: &str = "./tasks.json";
+    macro_rules! default_path {
+        (user) => {
+            "./users.json"
+        };
+        (slot) => {
+            "./slots.json"
+        };
+        (task) => {
+            "./tasks.json"
+        };
+    }
 
     let mut users_path = None;
     let mut slots_path = None;
@@ -479,8 +487,6 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
             }
 
             Long("help") => {
-                use std::sync::LazyLock;
-
                 #[derive(Debug, Default)]
                 struct Value<'a> {
                     /// should be uppercase
@@ -505,19 +511,20 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
                 }
 
                 impl<'a> Value<'a> {
-                    pub fn new(name: &'a str) -> Self {
+                    pub const fn new(name: &'a str) -> Self {
                         Self {
                             name,
-                            ..Default::default()
+                            optional: false,
+                            variadic: false,
                         }
                     }
 
-                    pub fn _optional(mut self) -> Self {
+                    pub const fn _optional(mut self) -> Self {
                         self.optional = true;
                         self
                     }
 
-                    pub fn _variadic(mut self) -> Self {
+                    pub const fn _variadic(mut self) -> Self {
                         self.variadic = true;
                         self
                     }
@@ -533,30 +540,32 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
                 struct RunOption<'a> {
                     pub short: Option<char>,
                     pub long: Option<&'a str>,
-                    pub vals: Vec<Value<'a>>,
-                    pub msg: String,
+                    pub vals: &'a [Value<'a>],
+                    pub msg: &'a str,
                 }
 
                 impl<'a> RunOption<'a> {
-                    pub fn new<S: ToString>(msg: S) -> Self {
+                    pub const fn new(msg: &'a str) -> Self {
                         Self {
-                            msg: msg.to_string(),
-                            ..Default::default()
+                            msg,
+                            short: None,
+                            long: None,
+                            vals: &[],
                         }
                     }
 
-                    pub fn short(mut self, ch: char) -> Self {
+                    pub const fn short(mut self, ch: char) -> Self {
                         self.short = Some(ch);
                         self
                     }
 
-                    pub fn long(mut self, s: &'a str) -> Self {
+                    pub const fn long(mut self, s: &'a str) -> Self {
                         self.long = Some(s);
                         self
                     }
 
-                    pub fn value(mut self, value: Value<'a>) -> Self {
-                        self.vals.push(value);
+                    pub const fn values(mut self, vals: &'a [Value<'a>]) -> Self {
+                        self.vals = vals;
                         self
                     }
                 }
@@ -564,26 +573,34 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
                 static USAGES: [&[(bool, &str)]; 1] =
                     [&[(true, "gvsu-cis350-sporks"), (false, "[OPTIONS]")]];
 
-                static OPTIONS: LazyLock<[RunOption; 4]> = LazyLock::new(|| {
-                    [
-                        RunOption::new(format_args!("Provide path to user data file, otherwise default to {USERS_PATH_DEFAULT}"))
-                            .short('u')
-                            .long("users")
-                            .value(Value::new("PATH")),
-
-                        RunOption::new(format_args!("Provide path to slot data file, otherwise default to {SLOTS_PATH_DEFAULT}"))
-                            .short('s')
-                            .long("slots")
-                            .value(Value::new("PATH")),
-
-                        RunOption::new(format_args!("Provide path to task data file, otherwise default to {TASKS_PATH_DEFAULT}"))
-                            .short('t')
-                            .long("tasks")
-                            .value(Value::new("PATH")),
-
-                        RunOption::new("Display this message").long("help"),
-                    ]
-                });
+                static OPTIONS: [RunOption; 4] = [
+                    // --users
+                    RunOption::new(concat!(
+                        "Provide path to user data file, otherwise default to ",
+                        default_path!(user)
+                    ))
+                    .short('u')
+                    .long("users")
+                    .values(&[Value::new("PATH")]),
+                    // --slots
+                    RunOption::new(concat!(
+                        "Provide path to slot data file, otherwise default to ",
+                        default_path!(slot)
+                    ))
+                    .short('s')
+                    .long("slots")
+                    .values(&[Value::new("PATH")]),
+                    // --tasks
+                    RunOption::new(concat!(
+                        "Provide path to task data file, otherwise default to ",
+                        default_path!(task)
+                    ))
+                    .short('t')
+                    .long("tasks")
+                    .values(&[Value::new("PATH")]),
+                    // --help
+                    RunOption::new("Display this message").long("help"),
+                ];
 
                 print!("{}", "Usage:".bold().bright_green());
                 for usage in USAGES {
@@ -619,13 +636,13 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
 
                 let longest_args = OPTIONS
                     .iter()
-                    .map(|opt| opt.vals.as_slice())
+                    .map(|opt| opt.vals)
                     .filter(|x| !x.is_empty())
                     .map(|vals| vals.iter().map(|s| s.len() + " ".len()).sum::<usize>())
                     .max()
                     .unwrap_or(0);
 
-                for option in &*OPTIONS {
+                for option in &OPTIONS {
                     print!(
                         "  {:>short_width$}{} {:<long_width$} {:<args_width$} {}",
                         option.short.map_or_else(
@@ -660,9 +677,9 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
     }
 
     Ok(CmdLineData {
-        users_path: users_path.unwrap_or_else(|| PathBuf::from(USERS_PATH_DEFAULT)),
-        slots_path: slots_path.unwrap_or_else(|| PathBuf::from(SLOTS_PATH_DEFAULT)),
-        tasks_path: tasks_path.unwrap_or_else(|| PathBuf::from(TASKS_PATH_DEFAULT)),
+        users_path: users_path.unwrap_or_else(|| PathBuf::from(default_path!(user))),
+        slots_path: slots_path.unwrap_or_else(|| PathBuf::from(default_path!(slot))),
+        tasks_path: tasks_path.unwrap_or_else(|| PathBuf::from(default_path!(task))),
     })
 }
 
