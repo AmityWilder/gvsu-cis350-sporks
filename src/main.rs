@@ -1,12 +1,20 @@
-#![deny(clippy::undocumented_unsafe_blocks, clippy::missing_safety_doc)]
+#![forbid(
+    clippy::undocumented_unsafe_blocks,
+    clippy::missing_safety_doc,
+    clippy::missing_panics_doc,
+    reason = "multi-person projects should document dangers"
+)]
 #![deny(
     clippy::panic,
-    // clippy::todo,
     clippy::unimplemented,
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::unreachable,
-    reason = "production code shouldn't panic"
+    reason = "prefer errors over panicking"
+)]
+#![cfg_attr(
+    not(debug_assertions),
+    forbid(clippy::todo, reason = "production code should not use `todo`")
 )]
 
 use chrono::prelude::*;
