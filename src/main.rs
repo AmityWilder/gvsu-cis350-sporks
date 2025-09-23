@@ -23,8 +23,7 @@
 )]
 
 use chrono::prelude::*;
-use colored::Colorize;
-use lexopt::prelude::*;
+use cmdline::parse_arg;
 use serde::{
     Deserialize, Serialize,
     de::{DeserializeOwned, Visitor},
@@ -537,6 +536,8 @@ struct CmdLineData {
 
 /// Parse command line arguments for data.
 fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
+    use cmdline::*;
+
     macro_rules! default_path {
         (user) => {
             "./users.json"
@@ -558,236 +559,58 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
     let mut output_path = None;
 
     while let Some(arg) = parser.next()? {
-        match arg {
-            Short('u') | Long("users") => {
-                if users_path.is_none() {
-                    users_path = Some(PathBuf::from(parser.value()?));
+        parse_arg! {
+            options = OPTIONS;
+            parser = parser;
+            match arg {
+                #[help = concat!(
+                    "Provide path to user data file, otherwise default to ",
+                    default_path!(user)
+                )]
+                (-'u', --"users" <PATH>) => if users_path.is_none() {
+                    users_path = Some(PathBuf::from(PATH?));
                 } else {
                     Err(ArgsError::DuplicateArg)?
-                }
-            }
-            Short('s') | Long("slots") => {
-                if slots_path.is_none() {
-                    slots_path = Some(PathBuf::from(parser.value()?));
+                },
+
+                #[help = concat!(
+                    "Provide path to slot data file, otherwise default to ",
+                    default_path!(slot)
+                )]
+                (-'s', --"slots" <PATH>) => if slots_path.is_none() {
+                    slots_path = Some(PathBuf::from(PATH?));
                 } else {
                     Err(ArgsError::DuplicateArg)?
-                }
-            }
-            Short('t') | Long("tasks") => {
-                if tasks_path.is_none() {
-                    tasks_path = Some(PathBuf::from(parser.value()?));
+                },
+
+                #[help = concat!(
+                    "Provide path to task data file, otherwise default to ",
+                    default_path!(task)
+                )]
+                (-'t', --"tasks" <PATH>) => if tasks_path.is_none() {
+                    tasks_path = Some(PathBuf::from(PATH?));
                 } else {
                     Err(ArgsError::DuplicateArg)?
-                }
-            }
-            Short('o') | Long("output") => {
-                if output_path.is_none() {
-                    output_path = Some(PathBuf::from(parser.value()?));
+                },
+
+                #[help = concat!(
+                    "Provide path to output schedule to, otherwise default to ",
+                    default_path!(output)
+                )]
+                (-'o', --"output" <PATH>) => if output_path.is_none() {
+                    output_path = Some(PathBuf::from(PATH?));
                 } else {
                     Err(ArgsError::DuplicateArg)?
-                }
+                },
+
+                #[help = "Display this message"]
+                (-'h', --"help") => {
+                    print_help("gvsu-cis350-sporks", &[&[(false, "[OPTIONS]")]], OPTIONS)?;
+                    std::process::exit(0);
+                },
+
+                _ => Err(arg.unexpected())?,
             }
-
-            Short('h') | Long("help") => {
-                #[derive(Debug, Default)]
-                struct Value<'a> {
-                    /// should be uppercase
-                    pub name: &'a str,
-                    /// `[NAME]` instead of `<NAME>`
-                    pub optional: bool,
-                    /// `...`
-                    pub variadic: bool,
-                }
-
-                impl std::fmt::Display for Value<'_> {
-                    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                        let name = self.name;
-                        let (open, close) = if self.optional {
-                            ('[', ']')
-                        } else {
-                            ('<', '>')
-                        };
-                        let trail = if self.variadic { "..." } else { "" };
-                        write!(f, "{open}{name}{close}{trail}")
-                    }
-                }
-
-                impl<'a> Value<'a> {
-                    pub const fn new(name: &'a str) -> Self {
-                        Self {
-                            name,
-                            optional: false,
-                            variadic: false,
-                        }
-                    }
-
-                    /// Mark the value as optional (wrap with `[]` instead of `<>`).
-                    pub const fn optional(mut self) -> Self {
-                        self.optional = true;
-                        self
-                    }
-
-                    /// Mark the value as variadic (append with `...`).
-                    pub const fn variadic(mut self) -> Self {
-                        self.variadic = true;
-                        self
-                    }
-
-                    /// The length of the display string in bytes.
-                    pub const fn len(&self) -> usize {
-                        self.name.len()
-                            + if self.optional { "[]" } else { "<>" }.len()
-                            + if self.variadic { "..." } else { "" }.len()
-                    }
-                }
-
-                #[derive(Debug, Default)]
-                struct RunOption<'a> {
-                    pub short: Option<char>,
-                    pub long: Option<&'a str>,
-                    pub vals: &'a [Value<'a>],
-                    pub msg: &'a str,
-                }
-
-                impl<'a> RunOption<'a> {
-                    pub const fn new(msg: &'a str) -> Self {
-                        Self {
-                            msg,
-                            short: None,
-                            long: None,
-                            vals: &[],
-                        }
-                    }
-
-                    pub const fn short(mut self, ch: char) -> Self {
-                        self.short = Some(ch);
-                        self
-                    }
-
-                    pub const fn long(mut self, s: &'a str) -> Self {
-                        self.long = Some(s);
-                        self
-                    }
-
-                    pub const fn values(mut self, vals: &'a [Value<'a>]) -> Self {
-                        self.vals = vals;
-                        self
-                    }
-                }
-
-                static USAGES: [&[(bool, &str)]; 1] =
-                    [&[(true, "gvsu-cis350-sporks"), (false, "[OPTIONS]")]];
-
-                static OPTIONS: [RunOption; 5] = [
-                    // --users
-                    RunOption::new(concat!(
-                        "Provide path to user data file, otherwise default to ",
-                        default_path!(user)
-                    ))
-                    .short('u')
-                    .long("users")
-                    .values(&[Value::new("PATH")]),
-                    // --slots
-                    RunOption::new(concat!(
-                        "Provide path to slot data file, otherwise default to ",
-                        default_path!(slot)
-                    ))
-                    .short('s')
-                    .long("slots")
-                    .values(&[Value::new("PATH")]),
-                    // --tasks
-                    RunOption::new(concat!(
-                        "Provide path to task data file, otherwise default to ",
-                        default_path!(task)
-                    ))
-                    .short('t')
-                    .long("tasks")
-                    .values(&[Value::new("PATH")]),
-                    // --output
-                    RunOption::new(concat!(
-                        "Provide path to output schedule to, otherwise default to ",
-                        default_path!(output)
-                    ))
-                    .short('o')
-                    .long("output")
-                    .values(&[Value::new("PATH")]),
-                    // --help
-                    RunOption::new("Display this message")
-                        .short('h')
-                        .long("help"),
-                ];
-
-                print!("{}", "Usage:".bold().bright_green());
-                for usage in USAGES {
-                    for (bold, text) in usage {
-                        print!(
-                            " {}",
-                            if *bold {
-                                text.bright_cyan().bold()
-                            } else {
-                                text.cyan()
-                            }
-                        );
-                    }
-                    println!();
-                    print!("{:indent$}", "", indent = "Usage:".len());
-                }
-                println!();
-
-                println!("{}", "Options:".bold().bright_green());
-
-                let longest_short = if OPTIONS.iter().any(|opt| opt.short.is_some()) {
-                    "-*".len()
-                } else {
-                    0
-                };
-
-                let longest_long = OPTIONS
-                    .iter()
-                    .map(|opt| opt.long)
-                    .filter_map(|x| x.map(|x| "--".len() + x.len()))
-                    .max()
-                    .unwrap_or(0);
-
-                let longest_args = OPTIONS
-                    .iter()
-                    .map(|opt| opt.vals)
-                    .filter(|x| !x.is_empty())
-                    .map(|vals| vals.iter().map(|s| s.len() + " ".len()).sum::<usize>())
-                    .max()
-                    .unwrap_or(0);
-
-                for option in &OPTIONS {
-                    print!(
-                        "  {:>short_width$}{} {:<long_width$} {:<args_width$} {}",
-                        option.short.map_or_else(
-                            || "".normal(),
-                            |ch| format!("-{ch}").bold().bright_cyan()
-                        ),
-                        if option.short.is_some() { ',' } else { ' ' },
-                        option
-                            .long
-                            .map_or_else(|| "".normal(), |s| format!("--{s}").bold().bright_cyan()),
-                        option
-                            .vals
-                            .iter()
-                            // I know this isn't the same as `join`.
-                            // The trailing space is desired and this saves allocations.
-                            .map(|v| format!("{v} "))
-                            .collect::<String>()
-                            .cyan(),
-                        option.msg,
-                        short_width = longest_short,
-                        long_width = longest_long,
-                        args_width = longest_args,
-                    );
-                    println!();
-                }
-
-                std::process::exit(0);
-            }
-
-            _ => Err(arg.unexpected())?,
         }
     }
 
