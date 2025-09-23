@@ -203,9 +203,44 @@ impl Proficiency {
     }
 }
 
+/// A timerange, mainly intended for timeslots.
+///
+/// # [Ordering](`Ord`)
+///
+/// [`TimeInterval`] is ordered by start, then end.
+/// In other words, if [`TimeInterval`] `a` starts before [`TimeInterval`] `b`,
+/// then `a` will be ordered ahead of `b` no matter when either ends.
+/// However, if both start at the same time and date, then the one that ends first
+/// will be ordered ahead of the one that ends later.
+///
+/// The main purpose of implementing [`Ord`] for [`TimeInterval`] is so that
+/// it can be used as a key in a [`BTreeMap`](`std::collections::BTreeMap`)
+/// or [`BTreeSet`](`std::collections::BTreeSet`).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
-struct TimeInterval(pub Range<DateTime<Utc>>);
+pub struct TimeInterval(pub Range<DateTime<Utc>>);
 
+/// Custom [`Deserialize`] implementation needed for reading [`TimeInterval`] as map keys.
+///
+/// ```
+/// # use {std::collections::BTreeMap, crate::TimeInterval, serde_json::{self, json}};
+/// let events = serde_json::from_value::<BTreeMap<TimeInterval, Vec<String>>>(json!({
+///     "2025-09-23T19:44:54+00:00..2025-09-23T19:45:54+00:00": [
+///         "foo",
+///         "bar"
+///     ]
+/// }));
+///
+/// assert_eq!(
+///     events.unwrap(),
+///     BTreeMap::from_iter([(
+///         TimeInterval(
+///             "2025-09-23T19:44:54+00:00".parse().unwrap()
+///                 .."2025-09-23T19:45:54+00:00".parse().unwrap()
+///         ),
+///         vec!["foo".to_string(), "bar".to_string()]
+///     )])
+/// );
+/// ```
 impl<'de> Deserialize<'de> for TimeInterval {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -327,7 +362,7 @@ impl Ord for TimeInterval {
 
 /// A person who can be scheduled to work on a task.
 #[derive(Debug, Serialize, Deserialize)]
-struct User {
+pub struct User {
     /// Display name for representing the user on the manager-facing UI.
     /// Can be changed without changing the user's ID.
     pub name: String,
@@ -346,21 +381,27 @@ struct User {
     /// - "works better when Sally is there"
     pub user_prefs: HashMap<UserId, Preference>,
 
+    /// A dictionary of the user's skills and their capability with each skill.
+    ///
+    /// Skills the user has 0 proficiency with should be excluded to save memory,
+    /// as a missing skill is implied to be 0% proficiency.
     pub skills: HashMap<SkillId, Proficiency>,
 }
 
 /// Proficiency requirements for a skill on a [`Task`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ProficiencyReq {
-    /// The ideal proficiency
+    /// The ideal proficiency.
     pub target: Proficiency,
-    /// The lower bound of the target - try to stay above this
+
+    /// The lower bound of the target - try to stay above this.
     pub soft_min: Proficiency,
-    /// The upper bound of the target - try to stay below this
+    /// The upper bound of the target - try to stay below this.
     pub soft_max: Proficiency,
-    /// The lower bound - reject any solution below this
+
+    /// The lower bound - reject any solution below this.
     pub hard_min: Proficiency,
-    /// The upper bound - reject any solution above this
+    /// The upper bound - reject any solution above this.
     pub hard_max: Proficiency,
 }
 
@@ -407,11 +448,14 @@ impl ProficiencyReq {
 
 /// A product or service to be completed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Task {
+pub struct Task {
+    /// The name of the task.
     pub title: String,
+
+    /// The task description.
     pub desc: String,
 
-    /// Skills required to perform the task
+    /// Skills required to perform the task.
     ///
     /// Optimize covering with users whose combined capability equals the float provided (maxed out at 1.0 per individual)
     /// Prefer to overshoot (except in great excess, like 200+%) rather than undershoot, but prioritizing closer matches.
@@ -426,8 +470,12 @@ struct Task {
 }
 
 /// A segment of time that can be allocated for work, such as a "shift".
+///
+/// Slots are ordered by their [`interval`](`Slot::interval`)
+/// (See [`TimeInterval` ordering](TimeInterval#ordering)).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-struct Slot {
+pub struct Slot {
+    /// The time period the slot refers to.
     pub interval: TimeInterval,
 }
 
@@ -437,8 +485,10 @@ impl PartialOrd for Slot {
     }
 }
 
+/// A collection of time slots along with the tasks and users assigned to them.
 #[derive(Debug, Serialize, Deserialize)]
-struct Schedule {
+pub struct Schedule {
+    /// Timeslots and their assignments.
     pub slots: Vec<(Slot, HashSet<TaskId>, HashSet<UserId>)>,
 }
 
@@ -449,6 +499,7 @@ struct Schedule {
 pub enum SchedulingError {}
 
 impl Schedule {
+    /// Generate a schedule based on the provided requirements.
     pub fn generate(
         _slots: &[Slot],
         _tasks: &HashMap<TaskId, Task>,
@@ -466,9 +517,11 @@ pub enum ArgsError {
     /// Error reading arguments
     #[error("argument error")]
     LexoptError(#[from] lexopt::Error),
+
     /// Error involving filesystem
     #[error("filesystem error")]
     IOError(#[from] std::io::Error),
+
     /// Repetition of argument that should not be repeated
     #[error("data should only be provided once")]
     DuplicateArg,
@@ -568,16 +621,19 @@ fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
                         }
                     }
 
+                    /// Mark the value as optional (wrap with `[]` instead of `<>`).
                     pub const fn optional(mut self) -> Self {
                         self.optional = true;
                         self
                     }
 
+                    /// Mark the value as variadic (append with `...`).
                     pub const fn variadic(mut self) -> Self {
                         self.variadic = true;
                         self
                     }
 
+                    /// The length of the display string in bytes.
                     pub const fn len(&self) -> usize {
                         self.name.len()
                             + if self.optional { "[]" } else { "<>" }.len()
@@ -769,6 +825,7 @@ fn inner_main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Recursively print the error and its sources
 fn printerr(e: &dyn std::error::Error) {
     let mut err = Some(e);
     let mut i = 0;
