@@ -833,8 +833,7 @@ fn inner_main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         buf.clear();
         stdin().read_line(&mut buf)?;
-        let mut parser =
-            lexopt::Parser::from_iter(std::iter::once("").chain(buf.split_whitespace()));
+        let mut parser = lexopt::Parser::from_args(buf.split_whitespace());
         while let Some(arg) = parser.next()? {
             match arg {
                 Long("exit") => return Ok(()),
