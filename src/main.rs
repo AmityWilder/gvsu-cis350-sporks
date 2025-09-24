@@ -558,22 +558,22 @@ impl Schedule {
     ) -> Result<Self, SchedulingError> {
         use SchedulingError::*;
 
-        let dep_graph = Graph::from_verts_and_edges(
-            tasks.keys().copied(),
+        let dep_graph = Graph::from_forward(
             tasks
                 .iter()
-                .flat_map(move |(&a, Task { awaiting: bs, .. })| bs.iter().map(move |&b| (a, b))),
+                .map(|(&a, Task { awaiting: bs, .. })| (a, bs.iter().copied())),
         )
         .ok_or_else(|| todo!())?;
 
         // use BFS to sort the graph
         // tasks must create a DAG (no cycles)
         let dep_order = dep_graph
-            .bfs(dep_graph.verts().iter().copied().filter(|v| {
-                !dep_graph
-                    .has_inputs(v)
-                    .expect("all verts should be in graph")
-            }))
+            .bfs(
+                dep_graph
+                    .verts()
+                    .copied()
+                    .filter(|v| !dep_graph.receivers().contains(v)),
+            )
             .collect::<Vec<_>>();
 
         // debug

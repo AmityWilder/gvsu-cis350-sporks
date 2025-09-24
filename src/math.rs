@@ -1,6 +1,6 @@
 //! Module for discrete mathematical structures and algorithms.
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque, hash_map};
 
 /// Types that can be used as an ID.
 pub trait Id: Copy + Eq + std::hash::Hash {}
@@ -98,76 +98,51 @@ impl<T> std::iter::FusedIterator for DfsIter<'_, T> where Self: Iterator {}
 /// Directed graph.
 #[derive(Debug)]
 pub struct Graph<V> {
-    verts: Vec<V>,
+    verts: HashMap<V, std::ops::Range<usize>>,
     adj: Vec<V>,
-    vert_adjs: Vec<(bool, usize)>,
 }
 
 impl<V: Id> Graph<V> {
-    /// Construct a graph from an iterator over vertices and an iterator over edges.
-    /// `(a, b) => a -> b`
-    pub fn from_verts_and_edges<I, J, K>(verts: I, edges: J) -> Option<Self>
+    /// Construct a graph from an iterator over vertices and an iterator over connections.
+    ///
+    /// Expects connections to be the "next" vertex in the edge.
+    pub fn from_forward<I, J>(iter: I) -> Option<Self>
     where
-        I: IntoIterator<Item = V>,
-        J: IntoIterator<Item = (V, V), IntoIter = K>,
-        K: Iterator<Item = (V, V)> + Clone,
+        I: IntoIterator<Item = (V, J)>,
+        J: IntoIterator<Item = V>,
     {
-        let verts = Vec::from_iter(verts);
-        let edges: K = edges.into_iter();
-        let mut adj = Vec::with_capacity(edges.size_hint().0);
-        let mut vert_adjs = vec![(false, 0); verts.len()];
-        for (a, b) in edges.clone() {
-            let a_pos = verts.iter().position(|x| x == &a)?;
-            let b_pos = verts.iter().position(|x| x == &b)?;
-            adj.insert(
-                vert_adjs[..=a_pos].iter().map(|&(_, n)| n).sum::<usize>(),
-                b,
-            );
-            vert_adjs[a_pos].1 += 1;
-            vert_adjs[b_pos].0 = true;
-        }
-        Some(Self {
-            verts,
-            adj,
-            vert_adjs,
-        })
+        let it = iter.into_iter();
+        let mut adj = Vec::with_capacity(it.size_hint().1.unwrap_or(it.size_hint().0));
+        let verts = it
+            .map(|(v, e)| {
+                let start = adj.len();
+                adj.extend(e);
+                let end = adj.len();
+                (v, start..end)
+            })
+            .collect();
+        Some(Self { verts, adj })
     }
 
-    /// Get the slice of all vertices in the graph.
-    pub const fn verts(&self) -> &[V] {
-        self.verts.as_slice()
-    }
-
-    /// Whether `vert` has any inputs or not.
-    ///
-    /// Returns [`None`] if `vert` is not in the graph.
-    pub fn has_inputs(&self, vert: &V) -> Option<bool> {
-        let pos = self.verts.iter().position(|x| x == vert)?;
-        Some(self.vert_adjs[pos].0)
-    }
-
-    /// Number of outputs `vert` has.
-    ///
-    /// Returns [`None`] if `vert` is not in the graph.
-    pub fn adjacent_len(&self, vert: &V) -> Option<usize> {
-        let pos = self.verts.iter().position(|x| x == vert)?;
-        Some(self.vert_adjs[pos].1)
+    /// Get iterator over the vertices in the graph in an arbitrary order.
+    pub fn verts(&self) -> hash_map::Keys<'_, V, std::ops::Range<usize>> {
+        self.verts.keys()
     }
 
     /// Get a slice of all vertices adjacent to (following) `vert`.
     ///
     /// Returns [`None`] if `vert` is not in the graph.
     pub fn adjacent(&self, vert: &V) -> Option<&[V]> {
-        let pos = self.verts.iter().position(|x| x == vert)?;
-        let start = self.vert_adjs[..pos].iter().map(|&(_, n)| n).sum::<usize>();
-        self.adj.get(start..start + self.vert_adjs[pos].1)
+        self.verts.get(vert).cloned().and_then(|x| self.adj.get(x))
+    }
+
+    /// Returns an arbitrarily ordered iterator, possibly containing duplicates, of all vertices in the graph that have inputs.
+    pub fn receivers(&self) -> &[V] {
+        self.adj.as_slice()
     }
 
     /// Construct a breadth-first search iterator over the graph.
-    pub fn bfs<I>(&self, roots: I) -> BfsIter<'_, V>
-    where
-        I: IntoIterator<Item = V>,
-    {
+    pub fn bfs<I: IntoIterator<Item = V>>(&self, roots: I) -> BfsIter<'_, V> {
         BfsIter::new(self, roots)
     }
 
@@ -186,35 +161,29 @@ mod tests {
         // 0 -- 1 -- 2 -- 5 -- 7
         //       \         \
         //        3 -- 4    6
-        let verts = [0, 1, 2, 3, 4, 5, 6, 7];
-        let edges = [(0, 1), (1, 2), (1, 3), (5, 6), (2, 5), (5, 7), (3, 4)];
-        let graph = Graph::from_verts_and_edges(verts, edges).unwrap();
-        assert_eq!(graph.verts.as_slice(), &verts);
+        let verts = [
+            (0, [1].iter().copied()),
+            (1, [2, 3].iter().copied()),
+            (2, [5].iter().copied()),
+            (3, [4].iter().copied()),
+            (4, [].iter().copied()),
+            (5, [6, 7].iter().copied()),
+            (6, [].iter().copied()),
+            (7, [].iter().copied()),
+        ];
+        let graph = Graph::from_forward(verts).unwrap();
         assert_eq!(
-            graph.adj.as_slice(),
-            &[
-                1, // 0 -> 1
-                2, // 1 -> 2
-                3, // 1 -> 3
-                5, // 2 -> 5
-                4, // 3 -> 4
-                6, // 5 -> 6
-                7, // 5 -> 7
-            ]
+            graph.verts().copied().collect::<HashSet<_>>(),
+            HashSet::from([0, 1, 2, 3, 4, 5, 6, 7])
         );
-        assert_eq!(
-            graph.vert_adjs.as_slice(),
-            &[
-                (false, 1), // _ -> 0 -> 1
-                (true, 2),  // 0 -> 1 -> 2, 3
-                (true, 1),  // 1 -> 2 -> 5
-                (true, 1),  // 1 -> 3 -> 4
-                (true, 0),  // 3 -> 4 -> _
-                (true, 2),  // 2 -> 5 -> 6, 7
-                (true, 0),  // 5 -> 6 -> _
-                (true, 0),  // 5 -> 7 -> _
-            ]
-        );
+        assert_eq!(graph.adjacent(&0), Some([1].as_slice()));
+        assert_eq!(graph.adjacent(&1), Some([2, 3].as_slice()));
+        assert_eq!(graph.adjacent(&2), Some([5].as_slice()));
+        assert_eq!(graph.adjacent(&3), Some([4].as_slice()));
+        assert_eq!(graph.adjacent(&4), Some([].as_slice()));
+        assert_eq!(graph.adjacent(&5), Some([6, 7].as_slice()));
+        assert_eq!(graph.adjacent(&6), Some([].as_slice()));
+        assert_eq!(graph.adjacent(&7), Some([].as_slice()));
     }
 
     #[test]
@@ -222,9 +191,17 @@ mod tests {
         // 0 -- 1 -- 2 -- 5 -- 7
         //       \         \
         //        3 -- 4    6
-        let verts = [0, 1, 2, 3, 4, 5, 6, 7];
-        let edges = [(0, 1), (1, 2), (1, 3), (5, 6), (2, 5), (5, 7), (3, 4)];
-        let graph = Graph::from_verts_and_edges(verts, edges).unwrap();
+        let verts = [
+            (0, [1].iter().copied()),
+            (1, [2, 3].iter().copied()),
+            (2, [5].iter().copied()),
+            (3, [4].iter().copied()),
+            (4, [].iter().copied()),
+            (5, [6, 7].iter().copied()),
+            (6, [].iter().copied()),
+            (7, [].iter().copied()),
+        ];
+        let graph = Graph::from_forward(verts).unwrap();
         let ord = graph.bfs([0]).collect::<Vec<_>>();
         assert_eq!(ord.as_slice(), &[0, 1, 2, 3, 5, 4, 6, 7]);
     }
@@ -234,9 +211,17 @@ mod tests {
         // 0 -- 1 -- 2 -- 5 -- 7
         //       \         \
         //        3 -- 4    6
-        let verts = [0, 1, 2, 3, 4, 5, 6, 7];
-        let edges = [(0, 1), (1, 2), (1, 3), (5, 6), (2, 5), (5, 7), (3, 4)];
-        let graph = Graph::from_verts_and_edges(verts, edges).unwrap();
+        let verts = [
+            (0, [1].iter().copied()),
+            (1, [2, 3].iter().copied()),
+            (2, [5].iter().copied()),
+            (3, [4].iter().copied()),
+            (4, [].iter().copied()),
+            (5, [6, 7].iter().copied()),
+            (6, [].iter().copied()),
+            (7, [].iter().copied()),
+        ];
+        let graph = Graph::from_forward(verts).unwrap();
         let ord = graph.dfs(0).collect::<Vec<_>>();
         assert_eq!(ord.as_slice(), &[0, 1, 2, 5, 6, 7, 3, 4]);
     }
