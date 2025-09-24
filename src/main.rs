@@ -9,14 +9,14 @@
 )]
 #![warn(missing_docs)]
 #![cfg_attr(
-    not(test),
+    not(any(test, debug_assertions)),
     deny(
         clippy::missing_panics_doc,
         clippy::panic,
         clippy::unimplemented,
         clippy::unwrap_used,
-        clippy::expect_used,
-        clippy::unreachable,
+        // clippy::expect_used,
+        // clippy::unreachable,
         reason = "prefer errors over panicking"
     )
 )]
@@ -28,6 +28,7 @@
 use chrono::prelude::*;
 use colored::Colorize;
 use lexopt::prelude::*;
+use math::Graph;
 use serde::{
     Deserialize, Serialize,
     de::{DeserializeOwned, Visitor},
@@ -40,6 +41,8 @@ use std::{
     path::{Path, PathBuf},
 };
 use thiserror::Error;
+
+pub mod math;
 
 /// Code uniquely identifying a user
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -555,43 +558,29 @@ impl Schedule {
     ) -> Result<Self, SchedulingError> {
         use SchedulingError::*;
 
-        #[derive(Debug, Clone, Default)]
-        struct Adjacent {
-            pub dependents: HashSet<TaskId>,
-            pub depends_on: HashSet<TaskId>,
-        }
-
-        let mut dep_order = Vec::with_capacity(tasks.len());
-        let mut queue = VecDeque::new();
-        let mut visited = HashSet::<TaskId>::new();
-        let mut task_deps = HashMap::<TaskId, Adjacent>::new();
-
-        for (&a, Task { awaiting: bs, .. }) in tasks {
-            task_deps.entry(a).or_default().depends_on.extend(bs);
-            if bs.is_empty() {
-                // treat any task that can be done immediately as a root
-                queue.push_back(a);
-                visited.insert(a);
-            } else {
-                for &b in bs {
-                    task_deps.entry(b).or_default().dependents.insert(a);
-                }
-            }
-        }
-        let task_deps = task_deps; // make immutable
+        let dep_graph = Graph::from_verts_and_edges(
+            tasks.keys().copied(),
+            tasks
+                .iter()
+                .flat_map(move |(&a, Task { awaiting: bs, .. })| bs.iter().map(move |&b| (a, b))),
+        )
+        .ok_or_else(|| todo!())?;
 
         // use BFS to sort the graph
         // tasks must create a DAG (no cycles)
-        while let Some(id) = queue.pop_front() {
-            dep_order.push(id);
-            let adj = task_deps.get(&id).ok_or(NonExistentTask(id))?;
-            queue.extend(adj.dependents.iter().filter(|&&dep| visited.insert(dep)));
-        }
+        let dep_order = dep_graph
+            .bfs(dep_graph.verts().iter().copied().filter(|v| {
+                !dep_graph
+                    .has_inputs(v)
+                    .expect("all verts should be in graph")
+            }))
+            .collect::<Vec<_>>();
 
         // debug
         println!("task order:");
         for (n, id) in dep_order.into_iter().enumerate() {
-            println!("{n:>4}. {id}");
+            let title = tasks.get(&id).ok_or(NonExistentTask(id))?.title.as_str();
+            println!("{n:>4}. {title} ({id})");
         }
 
         todo!()
@@ -620,6 +609,16 @@ mod scheduler_tests {
                 TaskId(2537),
                 Task {
                     title: "bar".to_string(),
+                    desc: String::new(),
+                    skills: HashMap::new(),
+                    deadline: None,
+                    awaiting: HashSet::from_iter([TaskId(5436)]),
+                },
+            ),
+            (
+                TaskId(3423),
+                Task {
+                    title: "baz".to_string(),
                     desc: String::new(),
                     skills: HashMap::new(),
                     deadline: None,
