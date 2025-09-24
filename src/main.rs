@@ -5,20 +5,23 @@
 #![forbid(
     clippy::undocumented_unsafe_blocks,
     clippy::missing_safety_doc,
-    clippy::missing_panics_doc,
     reason = "multi-person projects should document dangers"
-)]
-#![deny(
-    clippy::panic,
-    clippy::unimplemented,
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    reason = "prefer errors over panicking"
 )]
 #![warn(missing_docs)]
 #![cfg_attr(
-    not(debug_assertions),
+    not(test),
+    deny(
+        clippy::missing_panics_doc,
+        clippy::panic,
+        clippy::unimplemented,
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::unreachable,
+        reason = "prefer errors over panicking"
+    )
+)]
+#![cfg_attr(
+    not(any(test, debug_assertions)),
     forbid(clippy::todo, reason = "production code should not use `todo`")
 )]
 
@@ -30,7 +33,7 @@ use serde::{
     de::{DeserializeOwned, Visitor},
 };
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet, VecDeque},
     fs::File,
     io::BufReader,
     ops::Range,
@@ -42,13 +45,31 @@ use thiserror::Error;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct UserId(u32);
 
+impl std::fmt::Display for UserId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "u{:x}", self.0)
+    }
+}
+
 /// Code uniquely identifying a task
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TaskId(u64);
 
+impl std::fmt::Display for TaskId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "t{:x}", self.0)
+    }
+}
+
 /// Code uniquely identifying a skill - used to determine which users *can* be scheduled on a task
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SkillId(u32);
+
+impl std::fmt::Display for SkillId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "s{:x}", self.0)
+    }
+}
 
 /// Metadata regarding a skill
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -496,16 +517,120 @@ pub struct Schedule {
 ///
 /// Requires prompting manager to resolve.
 #[derive(Debug, Error)]
-pub enum SchedulingError {}
+pub enum SchedulingError {
+    /// A task was encountered that is not in the provided `tasks` dictionary.
+    #[error("task {_0} does not exist")]
+    NonExistentTask(TaskId),
+}
 
 impl Schedule {
     /// Generate a schedule based on the provided requirements.
+    ///
+    /// # Prioritization
+    ///
+    // Markdown tip:
+    // using `1.` over and over allows the order to be moved around without replacing the numbers on all the other items.
+    // Markdown notices the repeated `1.`s and replaces them with the number that describes their actual order.
+    ///
+    /// In descending order of importance:
+    ///
+    /// 1. Minimize legal issues[^legal]
+    /// 1. Maximize task completion
+    /// 1. Minimize deadlines missed
+    /// 1. Maximize tasks completed ahead of deadline
+    ///    - Descending order of quantity of dependents[^deps]
+    /// 1. Maximize user scheduling preferences fulfilled
+    ///    - Descending order of preference magnitude[^pref-mag]
+    /// 1. Minimize quantity of users scheduled simultaneously
+    ///
+    /// [^legal]: [`Preference`] of &pm;inf ([`Preference::INFINITY`]/[`Preference::NEG_INFINITY`]).
+    /// [^deps]: [`Task`] `a` is &lt;a dependent of/dependant on&gt; [`Task`] `b` if `a`'s [`awaiting`](Task::awaiting)-field contains `b`.
+    /// [^pref-mag]: A [`Preference`] is of higher magnitude when it is further from zero; i.e. [`f32::abs`]
+    ///
+    /// TODO: consider using [Dinic's Algorithm](https://en.wikipedia.org/wiki/Dinic%27s_algorithm)
     pub fn generate(
         _slots: &[Slot],
-        _tasks: &HashMap<TaskId, Task>,
+        tasks: &HashMap<TaskId, Task>,
         _users: &HashMap<UserId, User>,
     ) -> Result<Self, SchedulingError> {
+        use SchedulingError::*;
+
+        #[derive(Debug, Clone, Default)]
+        struct Adjacent {
+            pub dependents: HashSet<TaskId>,
+            pub depends_on: HashSet<TaskId>,
+        }
+
+        let mut dep_order = Vec::with_capacity(tasks.len());
+        let mut queue = VecDeque::new();
+        let mut visited = HashSet::<TaskId>::new();
+        let mut task_deps = HashMap::<TaskId, Adjacent>::new();
+
+        for (&a, Task { awaiting: bs, .. }) in tasks {
+            task_deps.entry(a).or_default().depends_on.extend(bs);
+            if bs.is_empty() {
+                // treat any task that can be done immediately as a root
+                queue.push_back(a);
+                visited.insert(a);
+            } else {
+                for &b in bs {
+                    task_deps.entry(b).or_default().dependents.insert(a);
+                }
+            }
+        }
+        let task_deps = task_deps; // make immutable
+
+        // use BFS to sort the graph
+        // tasks must create a DAG (no cycles)
+        while let Some(id) = queue.pop_front() {
+            dep_order.push(id);
+            let adj = task_deps.get(&id).ok_or(NonExistentTask(id))?;
+            queue.extend(adj.dependents.iter().filter(|&&dep| visited.insert(dep)));
+        }
+
+        // debug
+        println!("task order:");
+        for (n, id) in dep_order.into_iter().enumerate() {
+            println!("{n:>4}. {id}");
+        }
+
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod scheduler_tests {
+    use super::*;
+
+    #[test]
+    fn test0() {
+        let slots = vec![];
+        let tasks = [
+            (
+                TaskId(5436),
+                Task {
+                    title: "foo".to_string(),
+                    desc: String::new(),
+                    skills: HashMap::new(),
+                    deadline: None,
+                    awaiting: HashSet::from_iter([]),
+                },
+            ),
+            (
+                TaskId(2537),
+                Task {
+                    title: "bar".to_string(),
+                    desc: String::new(),
+                    skills: HashMap::new(),
+                    deadline: None,
+                    awaiting: HashSet::from_iter([TaskId(5436)]),
+                },
+            ),
+        ]
+        .into_iter()
+        .collect();
+        let users = [].into_iter().collect();
+        dbg!(Schedule::generate(&slots, &tasks, &users)).unwrap();
     }
 }
 
