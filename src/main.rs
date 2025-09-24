@@ -34,7 +34,7 @@ use serde::{
     de::{DeserializeOwned, Visitor},
 };
 use std::{
-    collections::{BTreeMap, HashMap, HashSet, VecDeque},
+    collections::{BTreeMap, HashMap, HashSet},
     fs::File,
     io::BufReader,
     ops::Range,
