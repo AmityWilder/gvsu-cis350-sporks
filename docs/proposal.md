@@ -1,8 +1,8 @@
 Team name: Sporks
 
 Team members:
-Conor Buchkowski
-Henry Lachman
+- Conor Buchkowski
+- Henry Lachman
 
 # Introduction
 
