@@ -9,6 +9,10 @@ Team members:
 (In 2-4 paragraphs, describe your project concept)
 (Also define some loosely defined features of your project using bullet points)
 
+This will be a scheduling program. It will take employee preferences and scheduling needs and turn it into a schedule. It will use Python and Rust in combination to create the schedule.
+
+The front end will accept the input from the users and display the schedule. Python will handle front end parts and communicate with the rust parts which handle the creating of the schedule.
+
 # Anticipated Technologies
 
 (What technologies are needed to build this project)
