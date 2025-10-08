@@ -13,6 +13,10 @@ This will be a scheduling program. It will take employee preferences and schedul
 
 The front end will accept the input from the users and display the schedule. Python will handle front end parts and communicate with the rust parts which handle the creating of the schedule.
 
+- The schedule is displayed
+- Schedules that are made are saved
+- Uses employee input, time slots, and requirements for each time slot to create schedule
+
 # Anticipated Technologies
 
 (What technologies are needed to build this project)
