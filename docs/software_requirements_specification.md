@@ -1,7 +1,6 @@
 # Overview
 
-<!-- Describe the purpose of this document in 1 paragraph of less ... hint: it is
-your SRS -->
+<!-- Describe the purpose of this document in 1 paragraph of less ... hint: it is your SRS -->
 
 # Functional Requirements
 
