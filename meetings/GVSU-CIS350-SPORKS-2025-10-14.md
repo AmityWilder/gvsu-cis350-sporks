@@ -16,6 +16,7 @@ Discussion points:
 - Proposal
   - Work out requirements
 - SRS (Software Requirement Specification)
+  - Skeleton
 
 Goals for next week:
 
