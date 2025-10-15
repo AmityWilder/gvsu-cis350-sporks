@@ -2,7 +2,7 @@
 //!
 //! A management scheduling application (generator end; executed by backend)
 
-#![forbid(
+#![deny(
     clippy::undocumented_unsafe_blocks,
     clippy::missing_safety_doc,
     reason = "multi-person projects should document dangers"
@@ -25,20 +25,24 @@
     forbid(clippy::todo, reason = "production code should not use `todo`")
 )]
 
+use anyhow::{anyhow, bail};
 use chrono::prelude::*;
-use colored::Colorize;
-use lexopt::prelude::*;
-use math::Graph;
-use serde::{
-    de::{DeserializeOwned, Visitor},
-    Deserialize, Serialize,
+use clap::{
+    Parser,
+    builder::{Styles, styling::AnsiColor},
 };
+use math::Graph;
+use miette::{
+    Context, Diagnostic, LabeledSpan, NamedSource, Result, Severity, SourceOffset, SourceSpan,
+    miette,
+};
+use serde::{Deserialize, Serialize, de::Visitor};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     fs::File,
     io::BufReader,
     ops::Range,
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 use thiserror::Error;
 
@@ -651,318 +655,94 @@ pub enum ArgsError {
     DuplicateArg,
 }
 
-#[derive(Debug)]
-struct CmdLineData {
-    pub users_path: PathBuf,
-    pub slots_path: PathBuf,
-    pub tasks_path: PathBuf,
-    pub output_path: PathBuf,
+const STYLE: Styles = Styles::styled()
+    .header(AnsiColor::Green.on_default().bold())
+    .usage(AnsiColor::Green.on_default().bold())
+    .literal(AnsiColor::BrightCyan.on_default().bold())
+    .placeholder(AnsiColor::Cyan.on_default());
+
+/// Sporks scheduling software
+#[derive(Debug, Parser)]
+#[command(version, propagate_version = true, about, long_about = None, styles = STYLE, color = clap::ColorChoice::Always)]
+pub struct Cli {
+    /// Provide path to user data file
+    #[arg(short, long, value_name = "PATH", default_value_os_t = PathBuf::from("./users.json"))]
+    users: PathBuf,
+
+    /// Provide path to timeslot data file
+    #[arg(short, long, value_name = "PATH", default_value_os_t = PathBuf::from("./slots.json"))]
+    slots: PathBuf,
+
+    /// Provide path to task data file
+    #[arg(short, long, value_name = "PATH", default_value_os_t = PathBuf::from("./tasks.json"))]
+    tasks: PathBuf,
+
+    /// Provide path to output data file
+    #[arg(short, long, value_name = "PATH", default_value_os_t = PathBuf::from("./schedule.json"))]
+    output: PathBuf,
 }
 
-/// Parse command line arguments for data.
-fn get_data(mut parser: lexopt::Parser) -> Result<CmdLineData, ArgsError> {
-    macro_rules! default_path {
-        (user) => {
-            "./users.json"
-        };
-        (slot) => {
-            "./slots.json"
-        };
-        (task) => {
-            "./tasks.json"
-        };
-        (output) => {
-            "./schedule.json"
-        };
-    }
-
-    let mut users_path = None;
-    let mut slots_path = None;
-    let mut tasks_path = None;
-    let mut output_path = None;
-
-    while let Some(arg) = parser.next()? {
-        match arg {
-            Short('u') | Long("users") => {
-                if users_path.is_none() {
-                    users_path = Some(PathBuf::from(parser.value()?));
-                } else {
-                    Err(ArgsError::DuplicateArg)?
-                }
-            }
-            Short('s') | Long("slots") => {
-                if slots_path.is_none() {
-                    slots_path = Some(PathBuf::from(parser.value()?));
-                } else {
-                    Err(ArgsError::DuplicateArg)?
-                }
-            }
-            Short('t') | Long("tasks") => {
-                if tasks_path.is_none() {
-                    tasks_path = Some(PathBuf::from(parser.value()?));
-                } else {
-                    Err(ArgsError::DuplicateArg)?
-                }
-            }
-            Short('o') | Long("output") => {
-                if output_path.is_none() {
-                    output_path = Some(PathBuf::from(parser.value()?));
-                } else {
-                    Err(ArgsError::DuplicateArg)?
-                }
-            }
-
-            Short('h') | Long("help") => {
-                #[derive(Debug, Default)]
-                struct Value<'a> {
-                    /// should be uppercase
-                    pub name: &'a str,
-                    /// `[NAME]` instead of `<NAME>`
-                    pub optional: bool,
-                    /// `...`
-                    pub variadic: bool,
-                }
-
-                impl std::fmt::Display for Value<'_> {
-                    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                        let name = self.name;
-                        let (open, close) = if self.optional {
-                            ('[', ']')
-                        } else {
-                            ('<', '>')
-                        };
-                        let trail = if self.variadic { "..." } else { "" };
-                        write!(f, "{open}{name}{close}{trail}")
-                    }
-                }
-
-                impl<'a> Value<'a> {
-                    pub const fn new(name: &'a str) -> Self {
-                        Self {
-                            name,
-                            optional: false,
-                            variadic: false,
-                        }
-                    }
-
-                    /// Mark the value as optional (wrap with `[]` instead of `<>`).
-                    pub const fn optional(mut self) -> Self {
-                        self.optional = true;
-                        self
-                    }
-
-                    /// Mark the value as variadic (append with `...`).
-                    pub const fn variadic(mut self) -> Self {
-                        self.variadic = true;
-                        self
-                    }
-
-                    /// The length of the display string in bytes.
-                    pub const fn len(&self) -> usize {
-                        self.name.len()
-                            + if self.optional { "[]" } else { "<>" }.len()
-                            + if self.variadic { "..." } else { "" }.len()
-                    }
-                }
-
-                #[derive(Debug, Default)]
-                struct RunOption<'a> {
-                    pub short: Option<char>,
-                    pub long: Option<&'a str>,
-                    pub vals: &'a [Value<'a>],
-                    pub msg: &'a str,
-                }
-
-                impl<'a> RunOption<'a> {
-                    pub const fn new(msg: &'a str) -> Self {
-                        Self {
-                            msg,
-                            short: None,
-                            long: None,
-                            vals: &[],
-                        }
-                    }
-
-                    pub const fn short(mut self, ch: char) -> Self {
-                        self.short = Some(ch);
-                        self
-                    }
-
-                    pub const fn long(mut self, s: &'a str) -> Self {
-                        self.long = Some(s);
-                        self
-                    }
-
-                    pub const fn values(mut self, vals: &'a [Value<'a>]) -> Self {
-                        self.vals = vals;
-                        self
-                    }
-                }
-
-                static USAGES: [&[(bool, &str)]; 1] =
-                    [&[(true, "gvsu-cis350-sporks"), (false, "[OPTIONS]")]];
-
-                static OPTIONS: [RunOption; 5] = [
-                    // --users
-                    RunOption::new(concat!(
-                        "Provide path to user data file, otherwise default to ",
-                        default_path!(user)
-                    ))
-                    .short('u')
-                    .long("users")
-                    .values(&[Value::new("PATH")]),
-                    // --slots
-                    RunOption::new(concat!(
-                        "Provide path to slot data file, otherwise default to ",
-                        default_path!(slot)
-                    ))
-                    .short('s')
-                    .long("slots")
-                    .values(&[Value::new("PATH")]),
-                    // --tasks
-                    RunOption::new(concat!(
-                        "Provide path to task data file, otherwise default to ",
-                        default_path!(task)
-                    ))
-                    .short('t')
-                    .long("tasks")
-                    .values(&[Value::new("PATH")]),
-                    // --output
-                    RunOption::new(concat!(
-                        "Provide path to output schedule to, otherwise default to ",
-                        default_path!(output)
-                    ))
-                    .short('o')
-                    .long("output")
-                    .values(&[Value::new("PATH")]),
-                    // --help
-                    RunOption::new("Display this message")
-                        .short('h')
-                        .long("help"),
-                ];
-
-                print!("{}", "Usage:".bold().bright_green());
-                for usage in USAGES {
-                    for (bold, text) in usage {
-                        print!(
-                            " {}",
-                            if *bold {
-                                text.bright_cyan().bold()
-                            } else {
-                                text.cyan()
-                            }
-                        );
-                    }
-                    println!();
-                    print!("{:indent$}", "", indent = "Usage:".len());
-                }
-                println!();
-
-                println!("{}", "Options:".bold().bright_green());
-
-                let longest_short = if OPTIONS.iter().any(|opt| opt.short.is_some()) {
-                    "-*".len()
-                } else {
-                    0
-                };
-
-                let longest_long = OPTIONS
-                    .iter()
-                    .map(|opt| opt.long)
-                    .filter_map(|x| x.map(|x| "--".len() + x.len()))
-                    .max()
-                    .unwrap_or(0);
-
-                let longest_args = OPTIONS
-                    .iter()
-                    .map(|opt| opt.vals)
-                    .filter(|x| !x.is_empty())
-                    .map(|vals| vals.iter().map(|s| s.len() + " ".len()).sum::<usize>())
-                    .max()
-                    .unwrap_or(0);
-
-                for option in &OPTIONS {
-                    print!(
-                        "  {:>short_width$}{} {:<long_width$} {:<args_width$} {}",
-                        option.short.map_or_else(
-                            || "".normal(),
-                            |ch| format!("-{ch}").bold().bright_cyan()
-                        ),
-                        if option.short.is_some() { ',' } else { ' ' },
-                        option
-                            .long
-                            .map_or_else(|| "".normal(), |s| format!("--{s}").bold().bright_cyan()),
-                        option
-                            .vals
-                            .iter()
-                            // I know this isn't the same as `join`.
-                            // The trailing space is desired and this saves allocations.
-                            .map(|v| format!("{v} "))
-                            .collect::<String>()
-                            .cyan(),
-                        option.msg,
-                        short_width = longest_short,
-                        long_width = longest_long,
-                        args_width = longest_args,
-                    );
-                    println!();
-                }
-
-                std::process::exit(0);
-            }
-
-            _ => Err(arg.unexpected())?,
+fn main() -> Result<()> {
+    let Cli {
+        users,
+        slots,
+        tasks,
+        output,
+    } = match Cli::try_parse() {
+        Ok(x) => Ok(x),
+        Err(e) if e.kind() == clap::error::ErrorKind::DisplayHelp => {
+            return e.print().map_err(miette::Error::from_err);
         }
-    }
+        Err(e) => Err(miette::Error::from_err(e)),
+    }?;
 
-    Ok(CmdLineData {
-        users_path: users_path.unwrap_or_else(|| PathBuf::from(default_path!(user))),
-        slots_path: slots_path.unwrap_or_else(|| PathBuf::from(default_path!(slot))),
-        tasks_path: tasks_path.unwrap_or_else(|| PathBuf::from(default_path!(task))),
-        output_path: output_path.unwrap_or_else(|| PathBuf::from(default_path!(output))),
-    })
-}
+    let users: HashMap<UserId, User> =
+        serde_json::from_reader(BufReader::new(File::open(&users).map_err(|e| {
+            let source = users.display().to_string();
+            miette!(
+                severity = Severity::Error,
+                labels = vec![LabeledSpan::at(0..source.len(), e.to_string())],
+                help = "make sure the file exists and can be read",
+                "could not load user data"
+            )
+            .with_source_code(source)
+        })?))
+        .map_err(miette::Error::from_err)?;
 
-/// Wrapper so that main can provide standardized error printing
-fn inner_main() -> Result<(), Box<dyn std::error::Error>> {
-    let CmdLineData {
-        users_path,
-        slots_path,
-        tasks_path,
-        output_path,
-    } = get_data(lexopt::Parser::from_env())?;
+    let slots: Vec<Slot> =
+        serde_json::from_reader(BufReader::new(File::open(&slots).map_err(|e| {
+            let source = slots.display().to_string();
+            miette!(
+                severity = Severity::Error,
+                labels = vec![LabeledSpan::at(0..source.len(), e.to_string())],
+                help = "make sure the file exists and can be read",
+                "could not load slot data"
+            )
+            .with_source_code(source)
+        })?))
+        .map_err(miette::Error::from_err)?;
 
-    fn load_from_path<T>(path: impl AsRef<Path>) -> Result<T, Box<dyn std::error::Error>>
-    where
-        T: DeserializeOwned,
-    {
-        serde_json::from_reader(BufReader::new(File::open(path)?)).map_err(Into::into)
-    }
+    let tasks: HashMap<TaskId, Task> =
+        serde_json::from_reader(BufReader::new(File::open(&tasks).map_err(|e| {
+            let source = tasks.display().to_string();
+            miette!(
+                severity = Severity::Error,
+                labels = vec![LabeledSpan::at(0..source.len(), e.to_string())],
+                help = "make sure the file exists and can be read",
+                "could not load task data"
+            )
+            .with_source_code(source)
+        })?))
+        .map_err(miette::Error::from_err)?;
 
-    let users = load_from_path::<HashMap<UserId, User>>(users_path)?;
-    let slots = load_from_path::<Vec<Slot>>(slots_path)?;
-    let tasks = load_from_path::<HashMap<TaskId, Task>>(tasks_path)?;
+    let schedule = Schedule::generate(&dbg!(slots), &dbg!(tasks), &dbg!(users))
+        .map_err(miette::Error::from_err)?;
 
-    let schedule = Schedule::generate(&dbg!(slots), &dbg!(tasks), &dbg!(users))?;
-    serde_json::to_writer(File::create(output_path)?, &dbg!(schedule))?;
+    serde_json::to_writer(
+        File::create(output).map_err(miette::Error::from_err)?,
+        &dbg!(schedule),
+    )
+    .map_err(miette::Error::from_err)?;
 
     Ok(())
-}
-
-/// Recursively print the error and its sources
-fn printerr(e: &dyn std::error::Error) {
-    let mut err = Some(e);
-    let mut i = 0;
-    while let Some(e) = err {
-        eprintln!("{:indent$}{e}", "", indent = i);
-        i += 2;
-        err = e.source();
-    }
-}
-
-fn main() {
-    if let Err(e) = inner_main() {
-        printerr(e.as_ref());
-        std::process::exit(1);
-    }
 }
