@@ -1,2 +1,2 @@
 [workspace]
-members = ["src/server"]
+members = ["src/srv"]
