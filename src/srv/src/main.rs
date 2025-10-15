@@ -30,8 +30,8 @@ use colored::Colorize;
 use lexopt::prelude::*;
 use math::Graph;
 use serde::{
-    Deserialize, Serialize,
     de::{DeserializeOwned, Visitor},
+    Deserialize, Serialize,
 };
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
