@@ -20,14 +20,14 @@
 //!
 //! TODO: consider using [Dinic's Algorithm](https://en.wikipedia.org/wiki/Dinic%27s_algorithm)
 
-use crate::{
-    data::{Slot, Task, TaskId, User, UserId},
-    math::Graph,
-};
+use crate::data::{Slot, Task, TaskId, User, UserId};
+use math::Graph;
 use miette::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use thiserror::Error;
+
+pub mod math;
 
 /// A collection of time slots along with the tasks and users assigned to them.
 #[derive(Debug, Serialize, Deserialize)]

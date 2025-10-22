@@ -40,7 +40,6 @@ use std::{
 
 pub mod algo;
 pub mod data;
-pub mod math;
 
 const STYLE: Styles = Styles::styled()
     .header(AnsiColor::Green.on_default().bold())
