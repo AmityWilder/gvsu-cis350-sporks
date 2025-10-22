@@ -23,17 +23,33 @@
 //! TODO: consider [PERT](https://en.wikipedia.org/wiki/Program_evaluation_and_review_technique)
 
 use crate::data::{Slot, Task, TaskId, User, UserId};
-use daggy::{Dag, Walker};
+use daggy::{Dag, Walker, WouldCycle};
 use miette::Result;
 use petgraph::{prelude::NodeIndex, visit::Topo};
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+/// Error generated while attempting to create a schedule.
+///
+/// Requires prompting manager to resolve.
+#[derive(Debug, Error)]
+pub enum SchedulingError {
+    /// A task was encountered that is not in the provided `tasks` dictionary.
+    #[error("task {_0} does not exist")]
+    NonExistentTask(TaskId),
+
+    /// Failed to construct a DAG due to existence of a cycle.
+    #[error("task dependencies cannot be cyclic")]
+    WouldCycle(#[from] WouldCycle<Vec<()>>),
+}
+
+type DepGraph<'a> = Dag<&'a Task, ()>;
+
 /// Create a dependency graph of tasks along with a topological sorting of them
 pub fn dep_order(
     tasks: &FxHashMap<TaskId, Task>,
-) -> Result<(Dag<&Task, ()>, Vec<NodeIndex>), SchedulingError> {
+) -> Result<(DepGraph<'_>, Vec<NodeIndex>), SchedulingError> {
     // tasks must create a DAG (no cycles)
     let mut dep_graph = Dag::with_capacity(
         tasks.len(),
@@ -49,29 +65,39 @@ pub fn dep_order(
         dep_graph.add_node(task);
     }
 
-    for (a, task) in tasks.values().enumerate() {
-        for b in &task.awaiting {
-            dep_graph.add_edge(
+    dep_graph.add_edges(tasks.values().enumerate().flat_map(|(a, task)| {
+        task.awaiting
+            .iter()
+            .map(|b| {
                 key_indices
                     .get(&b)
                     .copied()
                     .expect("all awaiting should be in graph")
-                    .into(),
-                (a as u32).into(),
-                (),
-            )?;
-        }
-    }
+                    .into()
+            })
+            .zip(std::iter::repeat((a as u32).into()))
+            .map(|(a, b)| (a, b, ()))
+    }))?;
 
     let dep_order = Topo::new(&dep_graph).iter(&dep_graph).collect::<Vec<_>>();
 
     // debug
     println!("task order:");
     for (n, task) in dep_order.iter().map(|&i| &dep_graph[i]).enumerate() {
-        println!("{n:>4}. {} ({})", &task.title, task.id);
-        for dependency in &task.awaiting {
-            println!("      * {dependency}");
-        }
+        println!(
+            "{n:>4}. {} ({}){}\n        deps: {{{}}}",
+            &task.title,
+            task.id,
+            match &task.deadline {
+                Some(x) => format!("\n        deadline: {}", x.format("%b %d, %Y - %H:%M")),
+                None => String::new(),
+            },
+            task.awaiting
+                .iter()
+                .map(|id| id.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
 
     Ok((dep_graph, dep_order))
@@ -82,20 +108,6 @@ pub fn dep_order(
 pub struct Schedule {
     /// Timeslots and their assignments.
     pub slots: Vec<(Slot, FxHashSet<TaskId>, FxHashSet<UserId>)>,
-}
-
-/// Error generated while attempting to create a schedule.
-///
-/// Requires prompting manager to resolve.
-#[derive(Debug, Error)]
-pub enum SchedulingError {
-    /// A task was encountered that is not in the provided `tasks` dictionary.
-    #[error("task {_0} does not exist")]
-    NonExistentTask(TaskId),
-
-    /// Failed to construct a DAG due to existence of a cycle.
-    #[error(transparent)]
-    WouldCycle(#[from] daggy::WouldCycle<()>),
 }
 
 impl Schedule {
@@ -115,41 +127,56 @@ impl Schedule {
 
 #[cfg(test)]
 mod scheduler_tests {
+    use super::*;
+    use chrono::prelude::{NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
     use std::collections::{HashMap, HashSet};
 
-    use super::*;
+    macro_rules! test_project {
+        ($(
+            $id:literal: $title:literal
+            $([$mo:literal/$d:literal/$yr:literal$( @ $hr:literal:$m:literal)?])?
+            { $($dep:literal),* $(,)? }
+        ),* $(,)?) => {
+            [$(Task {
+                id: TaskId($id),
+                title: $title.to_string(),
+                desc: String::new(),
+                skills: HashMap::new(),
+                deadline: None$(.or(Some(
+                    Utc.from_utc_datetime(
+                        &NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt($yr, $mo, $d)
+                                .unwrap_or_else(|| panic!(
+                                    "`{}/{}/{}` is not a valid date",
+                                    $mo,
+                                    $d,
+                                    $yr,
+                                )),
+                            None$(.or(Some(NaiveTime::from_hms_opt($hr, $m, 0)
+                                .unwrap_or_else(|| panic!(
+                                    "`{}:{}` is not a valid time",
+                                    $hr,
+                                    $m,
+                                )))))?
+                                .unwrap_or(NaiveTime::default()),
+                        ),
+                    ))
+                ))?,
+                awaiting: HashSet::from_iter([$(TaskId($dep)),*]),
+            }),*]
+                .into_iter()
+                .map(|task| (task.id, task))
+                .collect()
+        };
+    }
 
     #[test]
     fn test0() {
-        let tasks = [
-            Task {
-                id: TaskId(5436),
-                title: "foo".to_string(),
-                desc: String::new(),
-                skills: HashMap::new(),
-                deadline: None,
-                awaiting: HashSet::from_iter([]),
-            },
-            Task {
-                id: TaskId(2537),
-                title: "bar".to_string(),
-                desc: String::new(),
-                skills: HashMap::new(),
-                deadline: None,
-                awaiting: HashSet::from_iter([TaskId(3423)]),
-            },
-            Task {
-                id: TaskId(3423),
-                title: "baz".to_string(),
-                desc: String::new(),
-                skills: HashMap::new(),
-                deadline: None,
-                awaiting: HashSet::from_iter([TaskId(5436)]),
-            },
-        ]
-        .into_iter()
-        .map(|task| (task.id, task))
-        .collect();
+        let tasks = test_project! {
+            5436: "foo" [4/12/2025 @ 5:30] {},
+            2537: "bar" [4/12/2025] { 3423 },
+            3423: "baz" { 5436 },
+        };
 
         let (dag, ord) = dep_order(&tasks).unwrap();
         assert_eq!(
