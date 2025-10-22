@@ -14,7 +14,7 @@ pub struct UserId(pub u32);
 
 impl std::fmt::Display for UserId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "u{:x}", self.0)
+        write!(f, "u.{:x}", self.0)
     }
 }
 
@@ -24,7 +24,7 @@ pub struct TaskId(pub u64);
 
 impl std::fmt::Display for TaskId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "t{:x}", self.0)
+        write!(f, "t.{:x}", self.0)
     }
 }
 
@@ -34,7 +34,7 @@ pub struct SkillId(pub u32);
 
 impl std::fmt::Display for SkillId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "s{:x}", self.0)
+        write!(f, "s.{:x}", self.0)
     }
 }
 
@@ -437,6 +437,9 @@ impl ProficiencyReq {
 /// A product or service to be completed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
+    /// Duplicate of the task's ID.
+    pub id: TaskId,
+
     /// The name of the task.
     pub title: String,
 
