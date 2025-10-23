@@ -22,10 +22,10 @@
 //! TODO: consider [topological sorting](https://en.wikipedia.org/wiki/Topological_sorting)
 //! TODO: consider [PERT](https://en.wikipedia.org/wiki/Program_evaluation_and_review_technique)
 
-use crate::data::{Slot, Task, TaskId, User, UserId};
+use crate::data::{Slot, Task, TaskId, TaskMap, User, UserId};
 use daggy::{Dag, Walker, WouldCycle};
 use miette::Result;
-use petgraph::{prelude::NodeIndex, visit::Topo};
+use petgraph::visit::Topo;
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -46,10 +46,8 @@ pub enum SchedulingError {
 
 type DepGraph<'a> = Dag<&'a Task, ()>;
 
-/// Create a dependency graph of tasks along with a topological sorting of them
-pub fn dep_order(
-    tasks: &FxHashMap<TaskId, Task>,
-) -> Result<(DepGraph<'_>, Vec<NodeIndex>), SchedulingError> {
+/// Create a [dependency graph](DepGraph) for the task map.
+pub fn dep_graph(tasks: &TaskMap) -> Result<DepGraph<'_>, SchedulingError> {
     // tasks must create a DAG (no cycles)
     let mut dep_graph = Dag::with_capacity(
         tasks.len(),
@@ -59,7 +57,7 @@ pub fn dep_order(
         .keys()
         .enumerate()
         .map(|(i, k)| (k, i as u32))
-        .collect::<FxHashMap<_, _>>();
+        .collect::<FxHashMap<&TaskId, u32>>();
 
     for task in tasks.values() {
         dep_graph.add_node(task);
@@ -79,28 +77,34 @@ pub fn dep_order(
             .map(|(a, b)| (a, b, ()))
     }))?;
 
-    let dep_order = Topo::new(&dep_graph).iter(&dep_graph).collect::<Vec<_>>();
-
-    // debug
-    println!("task order:");
-    for (n, task) in dep_order.iter().map(|&i| &dep_graph[i]).enumerate() {
-        println!(
-            "{n:>4}. {} ({}){}\n        deps: {{{}}}",
-            &task.title,
-            task.id,
-            match &task.deadline {
-                Some(x) => format!("\n        deadline: {}", x.format("%b %d, %Y - %H:%M")),
-                None => String::new(),
-            },
-            task.awaiting
-                .iter()
-                .map(|id| id.to_string())
-                .collect::<Vec<_>>()
-                .join(", ")
-        );
+    #[cfg(debug_assertions)]
+    {
+        // debug
+        println!("task order:");
+        for (n, task) in dep_order(&dep_graph).enumerate() {
+            println!(
+                "{n:>4}. {} ({}){}\n        deps: {{{}}}",
+                &task.title,
+                task.id,
+                match &task.deadline {
+                    Some(x) => format!("\n        deadline: {}", x.format("%b %d, %Y - %H:%M")),
+                    None => String::new(),
+                },
+                task.awaiting
+                    .iter()
+                    .map(|id| id.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
     }
 
-    Ok((dep_graph, dep_order))
+    Ok(dep_graph)
+}
+
+/// Creates a topological sorting iterator over a [`DepGraph`].
+pub fn dep_order<'a>(graph: &DepGraph<'a>) -> impl Iterator<Item = &'a Task> {
+    Topo::new(graph).iter(graph).map(|i| graph[i])
 }
 
 /// A collection of time slots along with the tasks and users assigned to them.
@@ -116,10 +120,10 @@ impl Schedule {
     /// See [module-level documentation](crate::algo) for more details.
     pub fn generate(
         _slots: &[Slot],
-        tasks: &FxHashMap<TaskId, Task>,
+        tasks: &TaskMap,
         _users: &FxHashMap<UserId, User>,
     ) -> Result<Self, SchedulingError> {
-        let (_dag, _ord) = dep_order(tasks)?;
+        let _dag = dep_graph(tasks)?;
 
         todo!()
     }
@@ -129,7 +133,6 @@ impl Schedule {
 mod scheduler_tests {
     use super::*;
     use chrono::prelude::{NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
-    use std::collections::{HashMap, HashSet};
 
     macro_rules! test_project {
         ($(
@@ -141,7 +144,7 @@ mod scheduler_tests {
                 id: TaskId($id),
                 title: $title.to_string(),
                 desc: String::new(),
-                skills: HashMap::new(),
+                skills: FxHashMap::default(),
                 deadline: None$(.or(Some(
                     Utc.from_utc_datetime(
                         &NaiveDateTime::new(
@@ -162,7 +165,7 @@ mod scheduler_tests {
                         ),
                     ))
                 ))?,
-                awaiting: HashSet::from_iter([$(TaskId($dep)),*]),
+                awaiting: FxHashSet::from_iter([$(TaskId($dep)),*]),
             }),*]
                 .into_iter()
                 .map(|task| (task.id, task))
@@ -178,10 +181,10 @@ mod scheduler_tests {
             3423: "baz" { 5436 },
         };
 
-        let (dag, ord) = dep_order(&tasks).unwrap();
+        let dag = dep_graph(&tasks).unwrap();
         assert_eq!(
-            ord.iter()
-                .map(|&i| dag[i].title.as_str())
+            dep_order(&dag)
+                .map(|task| task.title.as_str())
                 .collect::<Vec<_>>(),
             vec!["foo", "baz", "bar"]
         );

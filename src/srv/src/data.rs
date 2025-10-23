@@ -2,11 +2,9 @@
 
 use chrono::prelude::*;
 use miette::Result;
+use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize, de::Visitor};
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    ops::Range,
-};
+use std::{collections::BTreeMap, ops::Range};
 
 /// Code uniquely identifying a user
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -367,13 +365,13 @@ pub struct User {
     /// Ex:
     /// - "doesn't like Brian"
     /// - "works better when Sally is there"
-    pub user_prefs: HashMap<UserId, Preference>,
+    pub user_prefs: FxHashMap<UserId, Preference>,
 
     /// A dictionary of the user's skills and their capability with each skill.
     ///
     /// Skills the user has 0 proficiency with should be excluded to save memory,
     /// as a missing skill is implied to be 0% proficiency.
-    pub skills: HashMap<SkillId, Proficiency>,
+    pub skills: FxHashMap<SkillId, Proficiency>,
 }
 
 /// Proficiency requirements for a skill on a [`Task`].
@@ -450,15 +448,18 @@ pub struct Task {
     ///
     /// Optimize covering with users whose combined capability equals the float provided (maxed out at 1.0 per individual)
     /// Prefer to overshoot (except in great excess, like 200+%) rather than undershoot, but prioritizing closer matches.
-    pub skills: HashMap<SkillId, ProficiencyReq>,
+    pub skills: FxHashMap<SkillId, ProficiencyReq>,
 
     /// [`None`]: Task has no "completion" state.
     pub deadline: Option<DateTime<Utc>>,
 
     /// Tasks that must be completed before this one can be scheduled
     /// (estimated by deadlines).
-    pub awaiting: HashSet<TaskId>,
+    pub awaiting: FxHashSet<TaskId>,
 }
+
+/// A dictionary associating task IDs with their tasks.
+pub type TaskMap = FxHashMap<TaskId, Task>;
 
 /// A segment of time that can be allocated for work, such as a "shift".
 ///
