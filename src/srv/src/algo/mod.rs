@@ -23,9 +23,9 @@
 //! TODO: consider [PERT](https://en.wikipedia.org/wiki/Program_evaluation_and_review_technique)
 
 use crate::data::{Slot, Task, TaskId, TaskMap, User, UserId};
-use daggy::{Dag, NodeIndex, Walker, WouldCycle};
+use daggy::{Dag, Walker, WouldCycle};
 use miette::Result;
-use petgraph::visit::{Topo, VisitMap, Visitable, WalkerIter};
+use petgraph::visit::Topo;
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -48,34 +48,29 @@ type DepGraph<'a> = Dag<&'a Task, ()>;
 
 /// Create a [dependency graph](DepGraph) for the task map.
 pub fn dep_graph(tasks: &TaskMap) -> Result<DepGraph<'_>, SchedulingError> {
+    use std::iter::repeat_n;
+
     // tasks must create a DAG (no cycles)
     let mut dep_graph = Dag::with_capacity(
         tasks.len(),
         tasks.values().map(|task| task.awaiting.len()).sum(),
     );
+
+    // all nodes must be inserted before any edges because creating an edge
+    // involving a node that has not been inserted yet causes an error.
+
     let key_indices = tasks
-        .keys()
-        .enumerate()
-        .map(|(i, k)| (k, i as u32))
-        .collect::<FxHashMap<&TaskId, u32>>();
+        .values()
+        .map(|task| (task.id, dep_graph.add_node(task)))
+        .collect::<FxHashMap<_, _>>();
 
-    for task in tasks.values() {
-        dep_graph.add_node(task);
-    }
-
-    dep_graph.add_edges(tasks.values().enumerate().flat_map(|(a, task)| {
-        task.awaiting
-            .iter()
-            .map(|b| {
-                key_indices
-                    .get(&b)
-                    .copied()
-                    .expect("all awaiting should be in graph")
-                    .into()
-            })
-            .zip(std::iter::repeat((a as u32).into()))
-            .map(|(a, b)| (a, b, ()))
-    }))?;
+    dep_graph.add_edges(
+        tasks
+            .values()
+            .map(|task| (&task.id, &task.awaiting))
+            .flat_map(|(id, deps)| deps.iter().zip(repeat_n(id, deps.len())))
+            .map(|(a, b)| (key_indices[a], key_indices[b], ())),
+    )?;
 
     #[cfg(debug_assertions)]
     {
