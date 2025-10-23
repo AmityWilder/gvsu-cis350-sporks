@@ -23,9 +23,9 @@
 //! TODO: consider [PERT](https://en.wikipedia.org/wiki/Program_evaluation_and_review_technique)
 
 use crate::data::{Slot, Task, TaskId, TaskMap, User, UserId};
-use daggy::{Dag, Walker, WouldCycle};
+use daggy::{Dag, NodeIndex, Walker, WouldCycle};
 use miette::Result;
-use petgraph::visit::Topo;
+use petgraph::visit::{Topo, VisitMap, Visitable, WalkerIter};
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -103,7 +103,7 @@ pub fn dep_graph(tasks: &TaskMap) -> Result<DepGraph<'_>, SchedulingError> {
 }
 
 /// Creates a topological sorting iterator over a [`DepGraph`].
-pub fn dep_order<'a>(graph: &DepGraph<'a>) -> impl Iterator<Item = &'a Task> {
+pub fn dep_order<'a>(graph: &DepGraph<'a>) -> impl Iterator<Item = &'a Task> + Clone {
     Topo::new(graph).iter(graph).map(|i| graph[i])
 }
 
