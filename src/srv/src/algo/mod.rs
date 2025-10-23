@@ -15,14 +15,12 @@
 //! 1. Minimize quantity of users scheduled simultaneously
 //!
 //! [^legal]: [`Preference`] of &pm;inf ([`Preference::INFINITY`]/[`Preference::NEG_INFINITY`]).
-//! [^deps]: [`Task`] `a` is &lt;a dependent of/dependant on&gt; [`Task`] `b` if `a`'s [`awaiting`](Task::awaiting)-field contains `b`.
+//! [^deps]: [`Task`] `a` is &lt;a dependent of/dependant on&gt; [`Task`] `b` if `a`'s [`deps`](Task::deps)-field contains `b`.
 //! [^pref-mag]: A [`Preference`] is of higher magnitude when it is further from zero; i.e. [`f32::abs`]
 //!
-//! TODO: consider using [Dinic's Algorithm](https://en.wikipedia.org/wiki/Dinic%27s_algorithm)
-//! TODO: consider [topological sorting](https://en.wikipedia.org/wiki/Topological_sorting)
 //! TODO: consider [PERT](https://en.wikipedia.org/wiki/Program_evaluation_and_review_technique)
 
-use crate::data::{Slot, Task, TaskId, TaskMap, User, UserId};
+use crate::data::{Preference, Slot, Task, TaskId, TaskMap, User, UserId};
 use daggy::{Dag, Walker, WouldCycle};
 use miette::Result;
 use petgraph::visit::Topo;
@@ -47,54 +45,34 @@ pub enum SchedulingError {
 type DepGraph<'a> = Dag<&'a Task, ()>;
 
 /// Create a [dependency graph](DepGraph) for the task map.
-pub fn dep_graph(tasks: &TaskMap) -> Result<DepGraph<'_>, SchedulingError> {
+///
+/// # Panics
+/// This function may panic if `dict` is ill-formed--that is, if
+/// a task is dependent on a task that does not exist.
+///
+/// # Errors
+/// This function may return an error if the dependencies contain
+/// cycles.
+pub fn dep_graph(dict: &TaskMap) -> Result<DepGraph<'_>, WouldCycle<Vec<()>>> {
     use std::iter::repeat_n;
 
     // tasks must create a DAG (no cycles)
-    let mut dep_graph = Dag::with_capacity(
-        tasks.len(),
-        tasks.values().map(|task| task.awaiting.len()).sum(),
-    );
+    let mut g = Dag::with_capacity(dict.len(), dict.values().map(|task| task.deps.len()).sum());
 
     // all nodes must be inserted before any edges because creating an edge
-    // involving a node that has not been inserted yet causes an error.
+    // involving a node that has not been inserted yet causes an error, even
+    // if that edge would be valid if both nodes were in the graph.
+    let key_indices = FxHashMap::from_iter(dict.values().map(|task| (task.id, g.add_node(task))));
 
-    let key_indices = tasks
-        .values()
-        .map(|task| (task.id, dep_graph.add_node(task)))
-        .collect::<FxHashMap<_, _>>();
-
-    dep_graph.add_edges(
-        tasks
-            .values()
-            .map(|task| (&task.id, &task.awaiting))
-            .flat_map(|(id, deps)| deps.iter().zip(repeat_n(id, deps.len())))
-            .map(|(a, b)| (key_indices[a], key_indices[b], ())),
+    // NOTE: parallel edges are not a concern because dependencies are stored
+    // by Task in a set and are therefore unique.
+    g.add_edges(
+        dict.values()
+            .flat_map(|Task { id, deps, .. }| repeat_n(id, deps.len()).zip(deps))
+            .map(|(child, parent)| (key_indices[parent], key_indices[child], ())),
     )?;
 
-    #[cfg(debug_assertions)]
-    {
-        // debug
-        println!("task order:");
-        for (n, task) in dep_order(&dep_graph).enumerate() {
-            println!(
-                "{n:>4}. {} ({}){}\n        deps: {{{}}}",
-                &task.title,
-                task.id,
-                match &task.deadline {
-                    Some(x) => format!("\n        deadline: {}", x.format("%b %d, %Y - %H:%M")),
-                    None => String::new(),
-                },
-                task.awaiting
-                    .iter()
-                    .map(|id| id.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            );
-        }
-    }
-
-    Ok(dep_graph)
+    Ok(g)
 }
 
 /// Creates a topological sorting iterator over a [`DepGraph`].
@@ -129,6 +107,26 @@ mod scheduler_tests {
     use super::*;
     use chrono::prelude::{NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
 
+    fn dbg_ord(dep_graph: &DepGraph<'_>) {
+        println!("task order:");
+        for (n, task) in dep_order(dep_graph).enumerate() {
+            println!(
+                "{n:>4}. {} ({}){}\n        deps: {{{}}}",
+                &task.title,
+                task.id,
+                match &task.deadline {
+                    Some(x) => format!("\n        deadline: {}", x.format("%b %d, %Y - %H:%M")),
+                    None => String::new(),
+                },
+                task.deps
+                    .iter()
+                    .map(|id| id.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
+    }
+
     macro_rules! test_project {
         ($(
             $id:literal: $title:literal
@@ -160,7 +158,7 @@ mod scheduler_tests {
                         ),
                     ))
                 ))?,
-                awaiting: FxHashSet::from_iter([$(TaskId($dep)),*]),
+                deps: FxHashSet::from_iter([$(TaskId($dep)),*]),
             }),*]
                 .into_iter()
                 .map(|task| (task.id, task))
@@ -177,6 +175,7 @@ mod scheduler_tests {
         };
 
         let dag = dep_graph(&tasks).unwrap();
+        dbg_ord(&dag);
         assert_eq!(
             dep_order(&dag)
                 .map(|task| task.title.as_str())

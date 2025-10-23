@@ -453,9 +453,8 @@ pub struct Task {
     /// [`None`]: Task has no "completion" state.
     pub deadline: Option<DateTime<Utc>>,
 
-    /// Tasks that must be completed before this one can be scheduled
-    /// (estimated by deadlines).
-    pub awaiting: FxHashSet<TaskId>,
+    /// Dependencies - [`Task`]s that must be completed before this one can be scheduled (estimated by deadlines).
+    pub deps: FxHashSet<TaskId>,
 }
 
 /// A dictionary associating task IDs with their tasks.
