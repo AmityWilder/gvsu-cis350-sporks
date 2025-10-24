@@ -30,13 +30,17 @@ use clap::{
     Parser,
     builder::{Styles, styling::AnsiColor},
 };
-use miette::{LabeledSpan, Result, Severity, miette};
+use miette::{
+    Diagnostic, IntoDiagnostic, LabeledSpan, NamedSource, Result, SourceCode, SourceOffset,
+    SourceSpan, SpanContents,
+};
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
     fs::File,
-    io::BufReader,
+    io::{BufReader, Read},
     path::{Path, PathBuf},
 };
+use thiserror::Error;
 
 pub mod algo;
 pub mod data;
@@ -68,6 +72,36 @@ pub struct Cli {
     output: PathBuf,
 }
 
+/// IO errors aside from [`NotFound`](std::io::ErrorKind::NotFound).
+#[derive(Debug, Diagnostic, Error)]
+#[error("could not load {name} data")]
+pub struct LoadError {
+    name: &'static str,
+
+    #[source_code]
+    source: String,
+
+    #[label(primary, "{e}")]
+    primary_span: SourceSpan,
+
+    #[source]
+    e: std::io::Error,
+}
+
+/// Error while trying to parse a file
+#[derive(Debug, Diagnostic, Error)]
+#[error("could not parse file")]
+pub struct ParseError {
+    #[source_code]
+    source: NamedSource<String>,
+
+    #[label(primary, "{e}")]
+    primary_span: SourceOffset,
+
+    #[source]
+    e: serde_json::Error,
+}
+
 fn main() -> Result<()> {
     let Cli {
         users,
@@ -75,40 +109,51 @@ fn main() -> Result<()> {
         tasks,
         output,
     } = match Cli::try_parse() {
-        Ok(x) => Ok(x),
         Err(e) if e.kind() == clap::error::ErrorKind::DisplayHelp => {
-            return e.print().map_err(miette::Error::from_err);
+            return e.print().into_diagnostic();
         }
-        Err(e) => Err(miette::Error::from_err(e)),
+        cli => cli.into_diagnostic(),
     }?;
 
-    fn try_load<T: Serialize + DeserializeOwned + Default>(path: &Path, name: &str) -> Result<T> {
+    fn try_load<T: Serialize + DeserializeOwned + Default>(
+        path: &Path,
+        name: &'static str,
+    ) -> Result<T> {
         match File::open(path) {
             // successfully loaded
-            Ok(file) => {
-                serde_json::from_reader(BufReader::new(file)).map_err(miette::Error::from_err)
-            }
+            Ok(file) => serde_json::from_reader(BufReader::new(file)).map_err(|e| {
+                let source = std::fs::read_to_string(path).unwrap();
+                ParseError {
+                    primary_span: SourceOffset::from_location(&source, e.line(), e.column()),
+                    e,
+                    source: NamedSource::new(path.display().to_string(), source)
+                        .with_language("JSON"),
+                }
+                .into()
+            }),
 
             // not found, generate one
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 let default = T::default();
                 File::create(path)
-                    .map_err(miette::Error::from_err)
-                    .and_then(|file| {
-                        serde_json::to_writer(file, &default).map_err(miette::Error::from_err)
-                    })?;
+                    .into_diagnostic()
+                    .and_then(|file| serde_json::to_writer(file, &default).into_diagnostic())?;
                 Ok(default)
             }
 
             // other error
             Err(e) => {
-                let source = path.display().to_string();
-                Err(miette!(
-                    severity = Severity::Error,
-                    labels = vec![LabeledSpan::at(0..source.len(), e.to_string())],
-                    "could not load {name} data"
-                )
-                .with_source_code(source))
+                let source = match path.canonicalize() {
+                    Ok(absolute) => absolute.display().to_string(),
+                    Err(_) => path.display().to_string(),
+                };
+                Err(LoadError {
+                    e,
+                    name,
+                    primary_span: (0..source.len()).into(),
+                    source,
+                }
+                .into())
             }
         }
     }
@@ -117,14 +162,11 @@ fn main() -> Result<()> {
     let slots: Vec<_> = try_load(&slots, "time slot")?;
     let tasks = try_load(&tasks, "task")?;
 
-    let schedule = Schedule::generate(&dbg!(slots), &dbg!(tasks), &dbg!(users))
-        .map_err(miette::Error::from_err)?;
+    let schedule =
+        Schedule::generate(&dbg!(slots), &dbg!(tasks), &dbg!(users)).into_diagnostic()?;
 
-    serde_json::to_writer(
-        File::create(output).map_err(miette::Error::from_err)?,
-        &dbg!(schedule),
-    )
-    .map_err(miette::Error::from_err)?;
+    serde_json::to_writer(File::create(output).into_diagnostic()?, &dbg!(schedule))
+        .into_diagnostic()?;
 
     Ok(())
 }
