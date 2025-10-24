@@ -30,17 +30,13 @@ use clap::{
     Parser,
     builder::{Styles, styling::AnsiColor},
 };
-use miette::{
-    Diagnostic, IntoDiagnostic, LabeledSpan, NamedSource, Result, SourceCode, SourceOffset,
-    SourceSpan, SpanContents,
-};
+use miette::{IntoDiagnostic, LabeledSpan, NamedSource, Result, Severity, SourceOffset, miette};
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
     fs::File,
-    io::{BufReader, Read},
+    io::BufReader,
     path::{Path, PathBuf},
 };
-use thiserror::Error;
 
 pub mod algo;
 pub mod data;
@@ -72,36 +68,6 @@ pub struct Cli {
     output: PathBuf,
 }
 
-/// IO errors aside from [`NotFound`](std::io::ErrorKind::NotFound).
-#[derive(Debug, Diagnostic, Error)]
-#[error("could not load {name} data")]
-pub struct LoadError {
-    name: &'static str,
-
-    #[source_code]
-    source: String,
-
-    #[label(primary, "{e}")]
-    primary_span: SourceSpan,
-
-    #[source]
-    e: std::io::Error,
-}
-
-/// Error while trying to parse a file
-#[derive(Debug, Diagnostic, Error)]
-#[error("could not parse file")]
-pub struct ParseError {
-    #[source_code]
-    source: NamedSource<String>,
-
-    #[label(primary, "{e}")]
-    primary_span: SourceOffset,
-
-    #[source]
-    e: serde_json::Error,
-}
-
 fn main() -> Result<()> {
     let Cli {
         users,
@@ -123,13 +89,16 @@ fn main() -> Result<()> {
             // successfully loaded
             Ok(file) => serde_json::from_reader(BufReader::new(file)).map_err(|e| {
                 let source = std::fs::read_to_string(path).unwrap();
-                ParseError {
-                    primary_span: SourceOffset::from_location(&source, e.line(), e.column()),
-                    e,
-                    source: NamedSource::new(path.display().to_string(), source)
-                        .with_language("JSON"),
-                }
-                .into()
+                miette!(
+                    labels = vec![LabeledSpan::new_primary_with_span(
+                        Some(e.to_string()),
+                        SourceOffset::from_location(&source, e.line(), e.column())
+                    )],
+                    "could not parse file"
+                )
+                .with_source_code(
+                    NamedSource::new(path.display().to_string(), source).with_language("JSON"),
+                )
             }),
 
             // not found, generate one
@@ -138,6 +107,20 @@ fn main() -> Result<()> {
                 File::create(path)
                     .into_diagnostic()
                     .and_then(|file| serde_json::to_writer(file, &default).into_diagnostic())?;
+                let source = match path.canonicalize() {
+                    Ok(absolute) => absolute.display().to_string(),
+                    Err(_) => path.display().to_string(),
+                };
+                let e = miette!(
+                    severity = Severity::Warning,
+                    labels = vec![LabeledSpan::new_primary_with_span(
+                        Some(format!("{e}")),
+                        0..source.len(),
+                    )],
+                    "could not load {name} data; generating a default"
+                )
+                .with_source_code(source);
+                println!("{e:?}");
                 Ok(default)
             }
 
@@ -147,13 +130,14 @@ fn main() -> Result<()> {
                     Ok(absolute) => absolute.display().to_string(),
                     Err(_) => path.display().to_string(),
                 };
-                Err(LoadError {
-                    e,
-                    name,
-                    primary_span: (0..source.len()).into(),
-                    source,
-                }
-                .into())
+                Err(miette!(
+                    labels = vec![LabeledSpan::new_primary_with_span(
+                        Some(e.to_string()),
+                        0..source.len(),
+                    )],
+                    "could not load {name} data"
+                )
+                .with_source_code(source))
             }
         }
     }
