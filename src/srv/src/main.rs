@@ -25,13 +25,15 @@
     forbid(clippy::todo, reason = "production code should not use `todo`")
 )]
 
+use xml_rpc::{Fault, Server};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use algo::Schedule;
 use clap::{
     Parser,
     builder::{Styles, styling::AnsiColor},
 };
 use miette::{IntoDiagnostic, LabeledSpan, NamedSource, Result, Severity, SourceOffset, miette};
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     fs::File,
     io::BufReader,
@@ -68,7 +70,27 @@ pub struct Cli {
     output: PathBuf,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct PingParams {
+    code: i32
+}
+
+fn ping_callback(mut p: PingParams) -> Result<i32, Fault> {
+    println!("srv: ping - code: {}", p.code);
+    p.code = (p.code * 2369 - 3865) % 47635;
+    println!("srv: ping - code: {}", p.code);
+    Ok(p.code)
+}
+
 fn main() -> Result<()> {
+    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
+    let mut server = Server::new();
+
+    server.register_simple("ping", &ping_callback);
+    let bound_server = server.bind(&socket).unwrap();
+    println!("srv: running");
+    bound_server.run();
+
     let Cli {
         users,
         slots,
