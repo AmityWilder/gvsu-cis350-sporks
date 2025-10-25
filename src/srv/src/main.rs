@@ -75,11 +75,11 @@ struct PingParams {
     code: i32
 }
 
-fn ping_callback(mut p: PingParams) -> Result<i32, Fault> {
-    println!("srv: ping - code: {}", p.code);
-    p.code = (p.code * 2369 - 3865) % 47635;
-    println!("srv: ping - code: {}", p.code);
-    Ok(p.code)
+fn ping_callback(PingParams { mut code }: PingParams) -> Result<i32, Fault> {
+    println!("srv: ping - code: {code}");
+    code = (code * 2369 - 3865) % 47635;
+    println!("srv: pinging client... code: {code}");
+    Ok(code)
 }
 
 fn main() -> Result<()> {
