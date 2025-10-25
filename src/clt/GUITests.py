@@ -13,11 +13,19 @@ srv = subprocess.Popen([f"./target/{BUILD}/gvsu-cis350-sporks.exe"])
 with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
     def close_server():
+        print("terminating server")
         srv.terminate()
-        time.sleep(1)
-        # still running after 1 second
-        if srv.poll() is None:
-            srv.kill()
+        slept = 0
+        while srv.poll() is None:
+            # still running after 5 seconds
+            if slept >= 5:
+                print("termination failed, killing server")
+                srv.kill()
+                break
+            else:
+                time.sleep(0.01)
+                slept += 0.01
+        print("finished")
 
     atexit.register(close_server)
 
