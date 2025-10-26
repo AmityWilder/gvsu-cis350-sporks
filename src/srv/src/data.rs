@@ -349,6 +349,9 @@ impl Ord for TimeInterval {
 /// A person who can be scheduled to work on a task.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User {
+    /// Duplicate of the task's ID.
+    pub id: UserId,
+
     /// Display name for representing the user on the manager-facing UI.
     /// Can be changed without changing the user's ID.
     pub name: String,
@@ -373,6 +376,9 @@ pub struct User {
     /// as a missing skill is implied to be 0% proficiency.
     pub skills: FxHashMap<SkillId, Proficiency>,
 }
+
+/// A dictionary associating user IDs with their users.
+pub type UserMap = FxHashMap<UserId, User>;
 
 /// Proficiency requirements for a skill on a [`Task`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

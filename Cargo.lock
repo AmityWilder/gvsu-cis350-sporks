@@ -566,6 +566,7 @@ dependencies = [
  "parking_lot",
  "petgraph",
  "quote",
+ "rouille",
  "rustc-hash",
  "semver",
  "serde",
