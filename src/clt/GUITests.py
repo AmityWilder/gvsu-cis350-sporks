@@ -1,4 +1,5 @@
 import time, xmlrpc.client, subprocess, atexit, tkinter as tk
+from tkinter import ttk
 
 IS_DEBUG_BUILD = True
 if IS_DEBUG_BUILD:
@@ -59,10 +60,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     label.pack(pady=10) # Add some vertical padding
 
 
-    textbox = tk.Entry(root)
-    textbox.pack() # Add some vertical padding
-    #textline = tk.Text(root, width = 50, height = 5)
-    #textline.pack() # Add some vertical padding
+    
 
 
     # Create a button widget
@@ -74,17 +72,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     button3.pack()
 
 
-    def get_text_data():
-        data = text_widget.get("1.0", "end-1c") # "1.0" for start, "end-1c" to exclude trailing newline
-        print("Text data:", type(data))
-        print("Text data:", data)
-
-
-    text_widget = tk.Text(root, height=5, width=30)
-    text_widget.pack()
-
-    submit_button = tk.Button(root, text="Get Text Data", command=get_text_data)
-    submit_button.pack()
+    
 
 
     # Start the main event loop
