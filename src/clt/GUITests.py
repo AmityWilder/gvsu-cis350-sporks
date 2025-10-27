@@ -1,43 +1,35 @@
 import tkinter as tk
+from tkinter import ttk
 
-def on_button_click():
+def on_button1_click():
     """Function to be called when the button is clicked."""
-    label.config(text="Button was clicked!")
+    label.config(text="Enter Manager!")
+
+def on_button2_click():
+    """Function to be called when the button is clicked."""
+    label.config(text="Enter Employee!")
 
 # Create the main window
 root = tk.Tk()
-root.title("Simple Tkinter App")
-root.geometry("500x250")
+root.title("Spork Scheduler")
+root.geometry("500x350")
 
 # Create a label widget
 label = tk.Label(root, text="Welcome!")
-label.pack(pady=10) # Add some vertical padding
+label.pack(expand=True) # Add some vertical padding
 
-
-textbox = tk.Entry(root)
-textbox.pack() # Add some vertical padding
-#textline = tk.Text(root, width = 50, height = 5)
-#textline.pack() # Add some vertical padding
-
-
+#frame to hold button
+button_frame=tk.Frame(root)
+button_frame.pack(expand=True)
 # Create a button widget
-button = tk.Button(root, text="Click Me", command=on_button_click)
-button2 = tk.Button(root, text="Click It", command=on_button_click)
-button.pack(pady=20)
-button2.pack()
+button = tk.Button(button_frame, text="Manager", command=on_button1_click)
+button2 = tk.Button(button_frame, text="Employee", command=on_button2_click)
+button.pack(side=tk.LEFT, padx=20)
+button2.pack(side=tk.RIGHT, padx=20)
 
 
-def get_text_data():
-    data = text_widget.get("1.0", "end-1c") # "1.0" for start, "end-1c" to exclude trailing newline
-    print("Text data:", type(data))
-    print("Text data:", data)
 
 
-text_widget = tk.Text(root, height=5, width=30)
-text_widget.pack()
-
-submit_button = tk.Button(root, text="Get Text Data", command=get_text_data)
-submit_button.pack()
 
 
 # Start the main event loop
