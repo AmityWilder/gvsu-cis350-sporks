@@ -4,7 +4,7 @@ use chrono::prelude::*;
 use miette::Result;
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize, de::Visitor};
-use std::{collections::BTreeMap, ops::Range};
+use std::ops::Range;
 
 /// Code uniquely identifying a user
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -361,7 +361,7 @@ pub struct User {
     /// Ex:
     /// - "available every Monday 3pm-7pm",
     /// - "never available on Fridays"
-    pub availability: BTreeMap<TimeInterval, Preference>,
+    pub availability: Vec<(TimeInterval, Preference)>,
 
     /// Preference towards sharing slots with other users.
     ///

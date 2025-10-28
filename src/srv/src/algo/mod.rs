@@ -92,11 +92,28 @@ impl Schedule {
     ///
     /// See [module-level documentation](crate::algo) for more details.
     pub fn generate(
-        _slots: &[Slot],
+        slots: &[Slot],
         tasks: &TaskMap,
-        _users: &FxHashMap<UserId, User>,
+        users: &FxHashMap<UserId, User>,
     ) -> Result<Self, SchedulingError> {
-        let _dag = dep_graph(tasks)?;
+        let _deps = dep_graph(tasks)?;
+        // let ord = dep_order(&deps);
+        for slot in slots {
+            let mut candidates = users
+                .values()
+                .filter_map(|u| {
+                    u.availability
+                        .iter()
+                        .filter(|(t, _)| slot.interval.end < t.start || t.end < slot.interval.start)
+                        .reduce(|a, b| if a.1 <= b.1 { a } else { b })
+                        .map(|a| (u, a))
+                })
+                .collect::<Vec<_>>();
+
+            candidates.sort_by(|(_, a), (_, b)| a.1.partial_cmp(&b.1).unwrap());
+
+            // TODO
+        }
 
         todo!()
     }

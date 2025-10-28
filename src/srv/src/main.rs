@@ -36,7 +36,6 @@ use parking_lot::Mutex;
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
-    collections::BTreeMap,
     fs::File,
     io::BufReader,
     net::{IpAddr, Ipv4Addr, SocketAddr},
@@ -211,7 +210,7 @@ fn main() -> Result<()> {
                 User {
                     id,
                     name,
-                    availability: BTreeMap::new(),
+                    availability: Vec::new(),
                     user_prefs: FxHashMap::default(),
                     skills: FxHashMap::default(),
                 }
