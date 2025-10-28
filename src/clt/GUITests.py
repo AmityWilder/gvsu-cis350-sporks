@@ -1,5 +1,6 @@
 import time, xmlrpc.client, subprocess, atexit, tkinter as tk
 from tkinter import ttk
+from functions import *
 
 IS_DEBUG_BUILD = True
 if IS_DEBUG_BUILD:
@@ -40,15 +41,15 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
     atexit.register(close_server)
 
-    def on_button_click():
-        """Function to be called when the button is clicked."""
-        label.config(text="Button was clicked!")
+    # def on_button_click():
+    #     """Function to be called when the button is clicked."""
+    #     label.config(text="Button was clicked!")
 
-    def add_task():
-        added = proxy.add_tasks({'to_add': [{'title': "foo"}]})
+    # def add_task():
+    #     added = proxy.add_tasks({'to_add': [{'title': "foo"}]})
 
-    def add_user():
-        added = proxy.add_users({'to_add': [{'name': "Edward Coolguy"}]})
+    # def add_user():
+    #     added = proxy.add_users({'to_add': [{'name': "Edward Coolguy"}]})
 
     # Create the main window
     root = tk.Tk()
@@ -66,9 +67,9 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
 
     # Create a button widget
-    button = tk.Button(root, text="Click Me", command=on_button_click)
-    button2 = tk.Button(root, text="Add Task", command=add_task)
-    button3 = tk.Button(root, text="Add User", command=add_user)
+    button = tk.Button(root, text="Click Me", command=lambda: on_button_click(label))
+    button2 = tk.Button(root, text="Add Task", command=lambda: add_task(proxy))
+    button3 = tk.Button(root, text="Add User", command=lambda: add_user(proxy))
     button.pack(pady=20)
     button2.pack()
     button3.pack()
@@ -88,26 +89,26 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     # Trace changes to the selected_option variable
     #selected_option.trace('w', on_option_change)
     
-    def toggle_textbox():
-        if textbox_visible.get():  # If textbox is currently visible
-            entry_box.pack_forget()  # Hide the textbox
-            textbox_visible.set(False)
-            toggle_button.config(text="Show Textbox")
-        else:  # If textbox is currently hidden
-            entry_box.pack()  # Show the textbox
-            textbox_visible.set(True)
-            toggle_button.config(text="Hide Textbox")
+    # def toggle_textbox():
+    #     if textbox_visible.get():  # If textbox is currently visible
+    #         entry_box.pack_forget()  # Hide the textbox
+    #         textbox_visible.set(False)
+    #         toggle_button.config(text="Show Textbox")
+    #     else:  # If textbox is currently hidden
+    #         entry_box.pack()  # Show the textbox
+    #         textbox_visible.set(True)
+    #         toggle_button.config(text="Hide Textbox")
     
     # Create a StringVar to track textbox visibility
     textbox_visible = tk.BooleanVar(value=False)
 
-    # Create the Entry widget (initially hidden)
-    entry_box = tk.Entry(root, width=30, takefocus=0)
+    
 
     # Create the button
-    toggle_button = tk.Button(root, text="Show Textbox", command=toggle_textbox)
+    toggle_button = tk.Button(root, text="Show Textbox", command=lambda:toggle_textbox(textbox_visible,entry_box,toggle_button))
     toggle_button.pack(pady=10)
-
+    # Create the Entry widget (initially hidden)
+    entry_box = tk.Entry(root, width=30)
 
 
     # Start the main event loop
