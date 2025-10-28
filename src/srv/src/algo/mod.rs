@@ -110,7 +110,10 @@ impl Schedule {
                 })
                 .collect::<Vec<_>>();
 
-            candidates.sort_by(|(_, a), (_, b)| a.1.partial_cmp(&b.1).unwrap());
+            candidates.sort_by(|(_, a), (_, b)| {
+                a.1.partial_cmp(&b.1)
+                    .expect("preference may be inf, but should never be NaN")
+            });
 
             // TODO
         }
