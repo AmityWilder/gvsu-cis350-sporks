@@ -37,9 +37,9 @@ gantt
     Learn xml-rpc                           : done, 2025-10-25, 1d
     Client interop                          : crit, active, interop-srv, 2025-10-25, 2w
     From availability                       : crit, active, alg-avail, after dl-ord, 3w
-    Availability rules                      : avail-rules, after alg-avail, 1w
+    Availability rules                      : avail-rules, after dl-ord, 3w
     Skill requirements                      : skill-req, after avail-rules, 2w
-    Overrides                               : ovr, after skill-req, 1w
+    Overrides                               : ovr, after skill-req, 2w
     Algorithm                               : crit, milestone, dl-ord alg-avail avail-rules skill-req ovr
 
     section Saving
