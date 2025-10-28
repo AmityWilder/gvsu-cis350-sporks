@@ -1,0 +1,8 @@
+/target
+/src/srv/slots.json
+/src/srv/tasks.json
+/src/srv/users.json
+/src/srv/slots.csv
+/src/srv/tasks.csv
+/src/srv/users.csv
+__pycache__
