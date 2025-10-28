@@ -71,7 +71,20 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     button2.pack()
     button3.pack()
 
+    
+    # Define the options for the dropdown
+    options = ["Apple", "Banana", "Orange", "Grape"]
 
+    # Create a StringVar to hold the selected option
+    selected_option = tk.StringVar(root)
+    selected_option.set(options[0])  # Set the default value
+
+    # Create the OptionMenu widget
+    dropdown_menu = tk.OptionMenu(root, selected_option, *options)
+    dropdown_menu.pack(pady=10)
+
+    # Trace changes to the selected_option variable
+    #selected_option.trace('w', on_option_change)
     
 
 
