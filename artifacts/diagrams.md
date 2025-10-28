@@ -1,24 +1,25 @@
 # Gantt
+
 ```mermaid
 gantt
     title Project Timeline
-    dateFormat %b %e
+    dateFormat M-D
     axisFormat %b %e
     tickInterval 1week
     weekday monday
     todayMarker on
 
     section GUI
-        Base visual layout                   : active, g1, Oct 27, 4w
+        Base visual layout                   : active, g1, 10-27, 4w
         Polish                               : g5, after g1, 4w
-        Server interop                       : active, g2, Oct 27, 2w
+        Server interop                       : active, g2, 10-27, 2w
         Functionality                        : milestone, g2
         Sign-in page                         : g3, after g2, 2w
         User permissions                     : g4, after g3, 3w
         Distinct employee and manager sides  : milestone, g3 g4
 
     section Scheduling algorithm
-        Deadline ordering   : done, sch1, Oct 27, 2w
+        Deadline ordering   : done, sch1, 10-27, 2w
         From availability   : active, sch2, after sch1, 4w
         Skill requirements  : sch3, after sch2, 2w
         Availability rules  : sch4, after sch3, 1w
