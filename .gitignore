@@ -5,3 +5,4 @@
 /src/srv/slots.csv
 /src/srv/tasks.csv
 /src/srv/users.csv
+__pycache__
