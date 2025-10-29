@@ -105,7 +105,7 @@ impl Schedule {
                     u.availability
                         .iter()
                         .filter(|(t, _)| slot.interval.end < t.start || t.end < slot.interval.start)
-                        .reduce(|a, b| if a.1 <= b.1 { a } else { b })
+                        .reduce(|a, b| if a.1 >= b.1 { a } else { b })
                         .map(|a| (u, a))
                 })
                 .collect::<Vec<_>>();
