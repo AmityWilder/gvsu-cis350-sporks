@@ -20,7 +20,9 @@
 //!
 //! TODO: consider [PERT](https://en.wikipedia.org/wiki/Program_evaluation_and_review_technique)
 
-use crate::data::{Preference, Slot, Task, TaskId, TaskMap, User, UserId};
+use std::collections::BTreeMap;
+
+use crate::data::{Preference, Slot, Task, TaskId, TaskMap, TimeInterval, User, UserId};
 use daggy::{Dag, Walker, WouldCycle};
 use miette::Result;
 use petgraph::visit::Topo;
@@ -102,17 +104,24 @@ impl Schedule {
             let mut candidates = users
                 .values()
                 .filter_map(|u| {
-                    u.availability
+                    let mut it = u
+                        .availability
                         .iter()
-                        .filter(|(t, _)| slot.interval.end < t.start || t.end < slot.interval.start)
-                        .reduce(|a, b| if a.1 >= b.1 { a } else { b })
-                        .map(|a| (u, a))
-                })
-                .collect::<Vec<_>>();
+                        .map(|(t, p)| (*p, t))
+                        .filter(|(p, t)| {
+                            *p > Preference::NEG_INFINITY && slot.interval.is_overlapping(t)
+                        })
+                        .peekable();
 
-            candidates.sort_by(|(_, a), (_, b)| {
-                a.1.partial_cmp(&b.1)
-                    .expect("preference may be inf, but should never be NaN")
+                    it.peek().is_some().then(|| (u, it.collect()))
+                })
+                .collect::<Vec<(&User, BTreeMap<Preference, &TimeInterval>)>>();
+
+            candidates.sort_by_key(|(_, prefs)| {
+                *prefs
+                    .first_key_value() // maximum preference
+                    .expect("candidates are filtered by overlap with this slot")
+                    .0
             });
 
             // TODO
