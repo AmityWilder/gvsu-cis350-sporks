@@ -90,8 +90,32 @@ pub struct Skill {
 /// If unable to be scheduled *separately*, **do not schedule *that* user.**
 ///
 /// **ex:** restraining order, history of harassment
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct Preference(f32);
+
+impl PartialEq for Preference {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other).is_eq()
+    }
+}
+impl Eq for Preference {}
+
+impl PartialOrd for Preference {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Preference {
+    #[inline]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0
+            .partial_cmp(&other.0)
+            .expect("preference may be inf, but should never be NaN")
+    }
+}
 
 impl std::fmt::Display for Preference {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -320,29 +344,63 @@ impl<'de> Deserialize<'de> for TimeInterval {
 impl std::ops::Deref for TimeInterval {
     type Target = Range<DateTime<Utc>>;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
 impl std::ops::DerefMut for TimeInterval {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
 impl PartialOrd for TimeInterval {
+    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl Ord for TimeInterval {
+    #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match self.0.start.cmp(&other.0.start) {
             std::cmp::Ordering::Equal => self.0.end.cmp(&other.0.end),
             ord => ord,
         }
+    }
+}
+
+impl TimeInterval {
+    /// Returns whether `self` and `other` occupy some shared range of time.
+    /// i.e. their intersection is non-null.
+    #[inline]
+    pub fn is_overlapping(&self, other: &Self) -> bool {
+        self.0.end < other.0.start || other.0.end < self.0.start
+    }
+
+    /// The overlapping subset of two [`TimeInterval`]s.
+    /// Returns [`None`] if there is no overlap.
+    #[inline]
+    pub fn intersection(&self, _other: &Self) -> Option<Self> {
+        todo!()
+    }
+
+    /// The superset of two overlapping/adjacent [`TimeInterval`]s.
+    /// Returns [`None`] if they do not overlap, meaning there would be no change.
+    #[inline]
+    pub fn union(&self, _other: &Self) -> Option<Self> {
+        todo!()
+    }
+
+    /// A [`TimeInterval`] with `other` excluded.
+    /// Returns [`None`] if `other` completely absorbs `self`.
+    #[inline]
+    pub fn difference(&self, _other: &Self) -> Option<Self> {
+        todo!()
     }
 }
 
