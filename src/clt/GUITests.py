@@ -57,8 +57,16 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     task_button = tk.Button(root, text="Add Task", command=lambda: add_task(proxy))
     user_button = tk.Button(root, text="Add User", command=lambda: add_user(proxy))
     button.pack(pady=20)
-    task_button.pack()
-    user_button.pack()
+    #task_button.pack()
+    #user_button.pack()
+    #add manager and employee buttons
+    task_visible=tk.BooleanVar(value=False)
+    user_visible=tk.BooleanVar(value=False)
+    manager=tk.Button(root, text="Manager", command=lambda:toggle_element(task_visible,[task_button, user_button]))
+    manager.pack()
+    employee=tk.Button(root, text="employee")
+    employee.pack()
+    
 
     # Define the options for the dropdown
     options = ["Apple", "Banana", "Orange", "Grape"]
@@ -75,7 +83,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     textbox_visible = tk.BooleanVar(value=False)
 
     # Create the button
-    toggle_button = tk.Button(root, text="Show Textbox", command=lambda:toggle_textbox(textbox_visible,entry_box,toggle_button))
+    toggle_button = tk.Button(root, text="toggle Textbox", command=lambda:toggle_element(textbox_visible,entry_box))
     toggle_button.pack(pady=10)
     # Create the Entry widget (initially hidden)
     entry_box = tk.Entry(root, width=30)
