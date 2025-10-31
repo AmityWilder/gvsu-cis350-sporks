@@ -68,7 +68,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
     start_center.pack(pady= 10)
     
-    manager=tk.Button(start_center, text="Manager", command=lambda:toggle_element(manager_toggled,[task_button, user_button]))
+    manager=tk.Button(start_center, text="Manager", command=lambda:toggle_elements(manager_toggled,[task_button, user_button]))
     manager.pack(side=tk.LEFT, padx= 5)
     employee=tk.Button(start_center, text="Employee")
     employee.pack(side=tk.LEFT)
@@ -91,10 +91,11 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     textbox_visible = tk.BooleanVar(value=False)
 
     # Create the button
-    toggle_button = tk.Button(root, text="toggle Textbox", command=lambda:toggle_element(textbox_visible,entry_box))
+    toggle_button = tk.Button(root, text="toggle Textbox", command=lambda:toggle_elements(textbox_visible,[entry_box]))
     toggle_button.pack(pady=10)
     # Create the Entry widget (initially hidden)
     entry_box = tk.Entry(root, width=30)
+    entered=entry_box.get() # stores string entered into the text box
 
     # Start the main event loop
     root.mainloop()

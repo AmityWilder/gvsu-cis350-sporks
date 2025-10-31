@@ -10,16 +10,18 @@ def add_task(proxy):
 def add_user(proxy):
     added = proxy.add_users({'to_add': [{'name': "Edward Coolguy"}]})
 
-def toggle_element(element_visible,element):
+def toggle_elements(element_visible,element):
+    # hide elements
     if element_visible.get():  # If textbox is currently visible
         for i in range(len(element)):
             current=element[i]
             current.pack_forget()  # Hide the textbox
         element_visible.set(False)
-        #toggle_button.config(text="Show Textbox")
+    
+    # show elements
     else:  # If textbox is currently hidden
         for j in range(len(element)):
             current=element[j]
             current.pack(side=tk.LEFT,padx=5)  # Show the textbox
         element_visible.set(True)
-        #toggle_button.config(text="Hide Textbox")
+        
