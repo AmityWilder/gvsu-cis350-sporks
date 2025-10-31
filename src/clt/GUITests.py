@@ -45,7 +45,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     root = tk.Tk()
     #removes focus
     root.bind_all("<Button-1>", lambda event: event.widget.focus_set())
-    root.title("Simple Tkinter App")
+    root.title("Spork Scheduler")
     root.geometry("640x480")
 
     # Create a label widget
