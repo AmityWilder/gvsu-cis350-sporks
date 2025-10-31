@@ -54,11 +54,11 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
     # Create a button widget
     button = tk.Button(root, text="Click Me", command=lambda: on_button_click(label))
-    button2 = tk.Button(root, text="Add Task", command=lambda: add_task(proxy))
-    button3 = tk.Button(root, text="Add User", command=lambda: add_user(proxy))
+    task_button = tk.Button(root, text="Add Task", command=lambda: add_task(proxy))
+    user_button = tk.Button(root, text="Add User", command=lambda: add_user(proxy))
     button.pack(pady=20)
-    button2.pack()
-    button3.pack()
+    task_button.pack()
+    user_button.pack()
 
     # Define the options for the dropdown
     options = ["Apple", "Banana", "Orange", "Grape"]
