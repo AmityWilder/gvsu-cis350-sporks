@@ -117,11 +117,13 @@ impl Schedule {
                 })
                 .collect::<Vec<(&User, BTreeMap<Preference, &TimeInterval>)>>();
 
-            candidates.sort_by_key(|(_, prefs)| {
-                *prefs
-                    .first_key_value() // maximum preference
-                    .expect("candidates are filtered by overlap with this slot")
-                    .0
+            candidates.sort_by_cached_key(|(_, prefs)| {
+                std::cmp::Reverse(
+                    *prefs
+                        .first_key_value() // maximum preference
+                        .expect("candidates are filtered by overlap with this slot")
+                        .0,
+                )
             });
 
             // TODO
