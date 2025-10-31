@@ -48,24 +48,32 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     root.title("Spork Scheduler")
     root.geometry("640x480")
 
+    center=tk.Frame(root)
+    start_center=tk.Frame(root)
+    
+
     # Create a label widget
     label = tk.Label(root, text="Welcome!")
     label.pack(pady=10) # Add some vertical padding
 
     # Create a button widget
     button = tk.Button(root, text="Click Me", command=lambda: on_button_click(label))
-    task_button = tk.Button(root, text="Add Task", command=lambda: add_task(proxy))
-    user_button = tk.Button(root, text="Add User", command=lambda: add_user(proxy))
+    task_button = tk.Button(center, text="Add Task", command=lambda: add_task(proxy))
+    user_button = tk.Button(center, text="Add User", command=lambda: add_user(proxy))
     button.pack(pady=20)
-    #task_button.pack()
-    #user_button.pack()
+
     #add manager and employee buttons
-    task_visible=tk.BooleanVar(value=False)
-    user_visible=tk.BooleanVar(value=False)
-    manager=tk.Button(root, text="Manager", command=lambda:toggle_element(task_visible,[task_button, user_button]))
-    manager.pack()
-    employee=tk.Button(root, text="employee")
-    employee.pack()
+    manager_toggled=tk.BooleanVar(value=False)
+    employee_toggled=tk.BooleanVar(value=False)
+
+    start_center.pack(pady= 10)
+    
+    manager=tk.Button(start_center, text="Manager", command=lambda:toggle_element(manager_toggled,[task_button, user_button]))
+    manager.pack(side=tk.LEFT, padx= 5)
+    employee=tk.Button(start_center, text="Employee")
+    employee.pack(side=tk.LEFT)
+
+    center.pack(anchor='center')
     
 
     # Define the options for the dropdown

@@ -1,3 +1,5 @@
+import time, xmlrpc.client, subprocess, atexit, tkinter as tk
+
 def on_button_click(label):
     """Function to be called when the button is clicked."""
     label.config(text="Button was clicked!")
@@ -18,6 +20,6 @@ def toggle_element(element_visible,element):
     else:  # If textbox is currently hidden
         for j in range(len(element)):
             current=element[j]
-            current.pack()  # Show the textbox
+            current.pack(side=tk.LEFT,padx=5)  # Show the textbox
         element_visible.set(True)
         #toggle_button.config(text="Hide Textbox")
