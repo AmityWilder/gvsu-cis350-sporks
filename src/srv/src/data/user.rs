@@ -63,7 +63,7 @@ impl std::fmt::Display for UserId {
 ///
 /// **ex:** restraining order, history of harassment
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
-pub struct Preference(f32);
+pub struct Preference(pub f32);
 
 impl PartialEq for Preference {
     #[inline]

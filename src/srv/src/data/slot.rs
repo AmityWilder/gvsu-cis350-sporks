@@ -170,7 +170,14 @@ impl TimeInterval {
     /// Returns whether `self` and `other` occupy some shared range of time.
     /// i.e. their intersection is non-null.
     pub fn is_overlapping(&self, other: &Self) -> bool {
-        self.0.end < other.0.start || other.0.end < self.0.start
+        debug_assert!(self.start <= self.end && other.start <= other.end);
+        !(self.end < other.start || other.end < self.start)
+    }
+
+    /// Returns whether `self` completely encloses `other`.
+    pub fn contains(&self, other: &Self) -> bool {
+        debug_assert!(self.start <= self.end && other.start <= other.end);
+        self.start <= other.start && other.end <= self.end
     }
 
     /// The overlapping subset of two [`TimeInterval`]s.

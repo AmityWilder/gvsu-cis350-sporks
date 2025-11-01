@@ -24,7 +24,7 @@ use crate::data::*;
 use daggy::{Dag, Walker, WouldCycle};
 use miette::Result;
 use petgraph::visit::Topo;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxBuildHasher, FxHashMap};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use thiserror::Error;
@@ -91,10 +91,7 @@ pub fn dep_order<'a>(graph: &DepGraph<'a>) -> impl Iterator<Item = &'a Task> + C
 
 /// A collection of time slots along with the tasks and users assigned to them.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Schedule {
-    /// Timeslots and their assignments.
-    pub slots: Vec<(Slot, TaskSet, UserSet)>,
-}
+pub struct Schedule(pub Vec<(Slot, /* TaskSet, */ UserSet)>);
 
 impl Schedule {
     /// Generate a schedule based on the provided requirements.
@@ -107,42 +104,80 @@ impl Schedule {
     ) -> Result<Self, SchedulingError> {
         let _deps = dep_graph(tasks)?;
         // let ord = dep_order(&deps);
-        for slot in slots {
-            let mut candidates = users
-                .values()
-                .filter_map(|u| {
-                    let mut it = u
-                        .availability
-                        .iter()
-                        .map(|(t, p)| (*p, t))
-                        .filter(|(p, t)| {
-                            *p > Preference::NEG_INFINITY && slot.interval.is_overlapping(t)
-                        })
-                        .peekable();
+        slots
+            .iter()
+            .map(|slot| {
+                let mut candidates = users
+                    .values()
+                    .filter_map(|u| {
+                        let mut it = u
+                            .availability
+                            .iter()
+                            .map(|(t, p)| (*p, t))
+                            .filter(|(p, t)| {
+                                *p > Preference::NEG_INFINITY && t.contains(&slot.interval)
+                            })
+                            .peekable();
 
-                    it.peek().is_some().then(|| (u, it.collect()))
-                })
-                .collect::<Vec<(&User, BTreeMap<Preference, &TimeInterval>)>>();
+                        it.peek().is_some().then(|| (u, it.collect()))
+                    })
+                    .collect::<Vec<(&User, BTreeMap<Preference, &TimeInterval>)>>();
 
-            candidates.sort_by_cached_key(|(_, prefs)| {
-                std::cmp::Reverse(
-                    *prefs
-                        .first_key_value() // maximum preference
-                        .expect("candidates are filtered by overlap with this slot")
-                        .0,
-                )
-            });
+                let staff = 'staff: {
+                    let mut staff = if let Some(min_staff) = slot.min_staff {
+                        use std::cmp::Ordering;
+                        let n = min_staff.get();
+                        match candidates.len().cmp(&n) {
+                            Ordering::Greater => {
+                                UserSet::with_capacity_and_hasher(n, FxBuildHasher)
+                            }
 
-            // TODO
-        }
+                            Ordering::Equal => {
+                                // don't need to sort if we're taking all of them
+                                break 'staff candidates
+                                    .into_iter()
+                                    .map(|(user, _)| user.id)
+                                    .collect();
+                            }
 
-        todo!()
+                            Ordering::Less => return Err(SchedulingError::Understaffed),
+                        }
+                    } else {
+                        Default::default()
+                    };
+
+                    candidates.sort_by_cached_key(|(_, prefs)| {
+                        std::cmp::Reverse(
+                            *prefs
+                                .first_key_value() // maximum preference
+                                .expect("candidates are filtered by overlap with this slot")
+                                .0,
+                        )
+                    });
+
+                    if let Some(min_staff) = slot.min_staff {
+                        staff.extend(
+                            candidates
+                                .split_off(min_staff.get())
+                                .into_iter()
+                                .map(|(user, _)| user.id),
+                        );
+                    }
+
+                    staff
+                };
+
+                Ok((slot.clone(), staff))
+            })
+            .collect::<Result<_, _>>()
+            .map(Self)
     }
 }
 
 #[cfg(test)]
 mod scheduler_tests {
     use super::*;
+    use rustc_hash::FxHashSet;
 
     fn dbg_ord(dep_graph: &DepGraph<'_>) {
         println!("task order:");
@@ -164,6 +199,12 @@ mod scheduler_tests {
         }
     }
 
+    macro_rules! hash_set {
+        ($($item:expr),* $(,)?) => {
+            FxHashSet::from_iter([$($item),*])
+        };
+    }
+
     #[test]
     fn test0() {
         let tasks = tasks! {
@@ -179,6 +220,45 @@ mod scheduler_tests {
                 .map(|task| task.title.as_str())
                 .collect::<Vec<_>>(),
             &["foo", "baz", "bar"]
+        );
+    }
+
+    #[test]
+    fn test1() {
+        let users = users! {
+            4578: "bob" {
+                4/12/2025 @ 6:30 - 6/12/2025 @ 7:30 | 1.0,
+            },
+            4753: "lisa" {
+                4/12/2025 @ 5:30 - 6/12/2025 @ 6:30 | 1.0,
+            },
+            2773: "jones" {
+                4/12/2025 @ 5:30 - 6/12/2025 @ 7:30 | 1.0,
+            },
+        };
+
+        let slots = slots! {
+            4/12/2025 @ 5:30 - 6/12/2025 @ 6:30 [2] | "a",
+            4/12/2025 @ 6:30 - 6/12/2025 @ 7:30 [2] | "b",
+        };
+
+        let schedule = Schedule::generate(&slots, &Default::default(), &users).unwrap();
+        assert_eq!(
+            schedule
+                .0
+                .iter()
+                .map(|(slot, staff)| (
+                    slot.name.as_deref().unwrap(),
+                    staff
+                        .iter()
+                        .map(|id| users[id].name.as_str())
+                        .collect::<FxHashSet<_>>()
+                ))
+                .collect::<FxHashMap<_, _>>(),
+            FxHashMap::from_iter([
+                ("a", hash_set! { "lisa", "jones" }),
+                ("b", hash_set! { "bob", "jones" }),
+            ]),
         );
     }
 }
