@@ -8,23 +8,20 @@ gantt
     tickInterval 1week
     weekday monday
     todayMarker on
-    Start  : vert, 2025-9-2, 0d
-    Finish : vert, 2025-12-13, 0d
+    Start                                   : vert, 2025-9-2, 0d
+    Stop                                    : vert, 2025-11-17, 0d
+    Submit                                  : vert, 2025-11-24, 0d
 
-    section Planning
+    section Admin
     Initial planning                        : done, plan-init, 2025-9-2, 4w
+    Testing                                 : crit, 2025-11-17, 1w
 
     section GUI
-    Learn tkinter                           : crit, active, lrn-tk, 2025-10-15, 7w
+    Learn tkinter                           : crit, active, lrn-tk, 2025-10-15, 4w
     Base visual layout                      : crit, active, base-layout, 2025-10-20, 4w
-    Polish                                  : polish, after base-layout, 26d
-    Server interop                          : crit, active, interop-clt, 2025-10-25, 2w
-    Base functionality                      : crit, milestone, interop-clt
-    Sign-in page                            : sign-in, after interop-clt, 1w
-    User/manager permissions                : usr-perms, after sign-in, 1.5w
-    Distinct employee and manager sides     : milestone, sign-in usr-perms
-    Schedule display                        : crit, sch-disp, after usr-perms, 1w
-    Schedule editing                        : crit, sch-edit, after usr-perms, 2w
+    Server interop                          : crit, done, interop-clt, 2025-10-25, 2025-10-31
+    Schedule display                        : crit, sch-disp, 2025-10-31, 2w
+    Schedule editing                        : crit, sch-edit, 2025-11-3, 2w
 
     section Scheduler
     Basic types                             : crit, done, tys, 2025-9-17, 2025-9-23
@@ -35,31 +32,19 @@ gantt
     Learn daggy                             : done, 2025-10-22, 2025-10-26
     Deadline ordering                       : crit, done, dl-ord, 2025-9-23, 2025-10-25
     Learn xml-rpc                           : done, 2025-10-25, 1d
-    Client interop                          : crit, active, interop-srv, 2025-10-25, 2w
-    From availability                       : crit, active, alg-avail, after dl-ord, 3w
-    Availability rules                      : avail-rules, after dl-ord, 3w
-    Skill requirements                      : skill-req, after avail-rules, 2w
-    Overrides                               : ovr, after skill-req, 2w
-    Algorithm                               : crit, milestone, dl-ord alg-avail avail-rules skill-req ovr
+    Client interop                          : crit, done, interop-srv, 2025-10-25, 2025-10-31
+    From availability                       : crit, active, alg-avail, after dl-ord, 10d
+    Availability rules                      : avail-rules, 2025-11-1, 1w
+    Skill requirements                      : skill-req, after avail-rules, 5d
+    Overrides                               : crit, ovr, after skill-req, 4d
 
     section Saving
-    Requirement data                        : crit, active, ser-dat, after dl-ord, 7w
-    Schedule                                : ser-sch, after alg-avail, 3w
-    File streaming                          : ser-stream, after alg-avail, 3w
+    Requirement data                        : crit, active, ser-dat, after dl-ord, 2025-11-17
+    Schedule                                : ser-sch, after alg-avail, 2025-11-17
 
     section Loading
-    Requirement data                        : crit, active, de-dat, after dl-ord, 7w
-    Schedule                                : de-sch, after alg-avail, 3w
-    File streaming                          : de-stream, after alg-avail, 3w
-
-    section Importing
-    Data from JSON                          : im-json, after alg-avail, 4w
-    Data from CSV                           : im-csv, after alg-avail, 4w
-
-    section Exporting
-    PNG/JPEG                                : ex-img, after alg-avail, 4w
-    PDF                                     : ex-pdf, after alg-avail, 4w
-    ical                                    : ex-ical, after alg-avail, 4w
+    Requirement data                        : crit, active, de-dat, after dl-ord, 2025-11-17
+    Schedule                                : de-sch, after alg-avail, 2025-11-17
 ```
 
 # Requirements
