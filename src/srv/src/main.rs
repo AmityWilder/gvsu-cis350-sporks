@@ -25,7 +25,11 @@
     forbid(clippy::todo, reason = "production code should not use `todo`")
 )]
 
-use crate::data::{Slot, Task, TaskId, TaskMap, User, UserId, UserMap};
+use crate::data::{
+    slot::Slot,
+    task::{Task, TaskId, TaskMap},
+    user::{User, UserId, UserMap},
+};
 use chrono::{DateTime, Utc};
 use clap::{
     Parser,
