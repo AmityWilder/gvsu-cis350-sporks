@@ -1,10 +1,11 @@
-use rustc_hash::FxHashMap;
-use serde::{Deserialize, Serialize};
+//! See [`User`]
 
 use crate::data::{
     skill::{Proficiency, SkillMap},
     slot::TimeInterval,
 };
+use rustc_hash::{FxHashMap, FxHashSet};
+use serde::{Deserialize, Serialize};
 
 /// Code uniquely identifying a user
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -168,3 +169,6 @@ pub struct User {
 
 /// A dictionary associating [`UserId`]s with `T`.
 pub type UserMap<T = User> = FxHashMap<UserId, T>;
+
+/// A set of [`UserId`]s.
+pub type UserSet = FxHashSet<UserId>;
