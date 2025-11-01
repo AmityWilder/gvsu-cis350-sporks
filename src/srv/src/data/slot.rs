@@ -1,7 +1,9 @@
+//! See [`Slot`]
+
 use chrono::prelude::*;
 use miette::Result;
 use serde::{Deserialize, Serialize, de::Visitor};
-use std::ops::Range;
+use std::{num::NonZeroUsize, ops::Range};
 
 /// A timerange, mainly intended for timeslots.
 ///
@@ -199,20 +201,31 @@ pub struct Slot {
     /// The time period the slot refers to.
     pub interval: TimeInterval,
 
+    /// [`None`]: Slot exists as an opportunity to
+    /// work on tasks, not as a shift that must be
+    /// covered.
+    ///
+    /// [`Some`]: an error may be emitted if there
+    /// is not enough staff to cover the shift,
+    /// even if all tasks are completed.
+    pub min_staff: Option<NonZeroUsize>,
+
     /// Name for the slot, if it has one.
     pub name: Option<String>,
 }
 
-impl PartialOrd for Slot {
+impl std::ops::Deref for Slot {
+    type Target = TimeInterval;
+
     #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
+    fn deref(&self) -> &Self::Target {
+        &self.interval
     }
 }
 
-impl Ord for Slot {
+impl std::ops::DerefMut for Slot {
     #[inline]
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.interval.cmp(&other.interval)
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.interval
     }
 }

@@ -5,6 +5,14 @@ pub mod slot;
 pub mod task;
 pub mod user;
 
+pub use skill::*;
+pub use slot::*;
+pub use task::*;
+pub use user::*;
+
+#[cfg(test)]
+pub use crate::{datetime, slots, tasks, users};
+
 /// Create a [`DateTime`](chrono::prelude::DateTime) literal.
 #[macro_export]
 macro_rules! datetime {
@@ -75,7 +83,7 @@ macro_rules! tasks {
                 deadline: None$(.or(Some(
                     datetime!($mo/$d/$yr$( @ $hr:$m)?)
                 )))?,
-                deps: FxHashSet::from_iter([$($crate::data::task::TaskId($dep)),*]),
+                deps: $crate::data::task::TaskSet::from_iter([$($crate::data::task::TaskId($dep)),*]),
             }
         ),*]
             .into_iter()

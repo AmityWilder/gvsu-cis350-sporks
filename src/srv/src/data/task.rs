@@ -1,3 +1,5 @@
+//! See [`Task`]
+
 use crate::data::skill::{Proficiency, SkillId};
 use chrono::prelude::*;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -96,5 +98,8 @@ pub struct Task {
     pub deps: FxHashSet<TaskId>,
 }
 
-/// A dictionary associating task IDs with their tasks.
-pub type TaskMap = FxHashMap<TaskId, Task>;
+/// A dictionary associating [`TaskId`]s with `T`.
+pub type TaskMap<T = Task> = FxHashMap<TaskId, T>;
+
+/// A set of [`TaskId`]s.
+pub type TaskSet = FxHashSet<TaskId>;

@@ -20,18 +20,13 @@
 //!
 //! TODO: consider [PERT](https://en.wikipedia.org/wiki/Program_evaluation_and_review_technique)
 
-use std::collections::BTreeMap;
-
-use crate::data::{
-    slot::{Slot, TimeInterval},
-    task::{Task, TaskId, TaskMap},
-    user::{Preference, User, UserId},
-};
+use crate::data::*;
 use daggy::{Dag, Walker, WouldCycle};
 use miette::Result;
 use petgraph::visit::Topo;
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use thiserror::Error;
 
 /// Error generated while attempting to create a schedule.
@@ -46,6 +41,14 @@ pub enum SchedulingError {
     /// Failed to construct a DAG due to existence of a cycle.
     #[error("task dependencies cannot be cyclic")]
     WouldCycle(#[from] WouldCycle<Vec<()>>),
+
+    /// Schedule would break a [`Preference::INFINITY`]/[`Preference::NEG_INFINITY`] requirement.
+    #[error("no schedule can be generated that does not break at least one +/-inf preference")]
+    Illegal,
+
+    /// Not enough [`User`]s for the provided [`Slot`]s.
+    #[error("insufficient users to cover shifts")]
+    Understaffed,
 }
 
 type DepGraph<'a> = Dag<&'a Task, ()>;
@@ -90,7 +93,7 @@ pub fn dep_order<'a>(graph: &DepGraph<'a>) -> impl Iterator<Item = &'a Task> + C
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Schedule {
     /// Timeslots and their assignments.
-    pub slots: Vec<(Slot, FxHashSet<TaskId>, FxHashSet<UserId>)>,
+    pub slots: Vec<(Slot, TaskSet, UserSet)>,
 }
 
 impl Schedule {
@@ -100,7 +103,7 @@ impl Schedule {
     pub fn generate(
         slots: &[Slot],
         tasks: &TaskMap,
-        users: &FxHashMap<UserId, User>,
+        users: &UserMap,
     ) -> Result<Self, SchedulingError> {
         let _deps = dep_graph(tasks)?;
         // let ord = dep_order(&deps);
@@ -140,7 +143,6 @@ impl Schedule {
 #[cfg(test)]
 mod scheduler_tests {
     use super::*;
-    use crate::{datetime, slots, tasks, users};
 
     fn dbg_ord(dep_graph: &DepGraph<'_>) {
         println!("task order:");

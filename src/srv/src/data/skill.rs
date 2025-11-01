@@ -1,4 +1,6 @@
-use rustc_hash::FxHashMap;
+//! See [`Skill`]
+
+use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 
 /// Code uniquely identifying a skill - used to determine which users *can* be scheduled on a task
@@ -22,6 +24,9 @@ pub struct Skill {
 
 /// A dictionary associating [`SkillId`]s with `T`.
 pub type SkillMap<T = Skill> = FxHashMap<SkillId, T>;
+
+/// A set of [`SkillId`]s.
+pub type SkillSet = FxHashSet<SkillId>;
 
 /// Level of skill
 ///
