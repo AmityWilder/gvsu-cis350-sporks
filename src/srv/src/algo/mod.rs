@@ -22,7 +22,11 @@
 
 use std::collections::BTreeMap;
 
-use crate::data::{Preference, Slot, Task, TaskId, TaskMap, TimeInterval, User, UserId};
+use crate::data::{
+    slot::{Slot, TimeInterval},
+    task::{Task, TaskId, TaskMap},
+    user::{Preference, User, UserId},
+};
 use daggy::{Dag, Walker, WouldCycle};
 use miette::Result;
 use petgraph::visit::Topo;
@@ -136,7 +140,7 @@ impl Schedule {
 #[cfg(test)]
 mod scheduler_tests {
     use super::*;
-    use chrono::prelude::{NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
+    use crate::{datetime, slots, tasks, users};
 
     fn dbg_ord(dep_graph: &DepGraph<'_>) {
         println!("task order:");
@@ -158,48 +162,9 @@ mod scheduler_tests {
         }
     }
 
-    macro_rules! test_project {
-        ($(
-            $id:literal: $title:literal
-            $([$mo:literal/$d:literal/$yr:literal$( @ $hr:literal:$m:literal)?])?
-            { $($dep:literal),* $(,)? }
-        ),* $(,)?) => {
-            [$(Task {
-                id: TaskId($id),
-                title: $title.to_string(),
-                desc: String::new(),
-                skills: FxHashMap::default(),
-                deadline: None$(.or(Some(
-                    Utc.from_utc_datetime(
-                        &NaiveDateTime::new(
-                            NaiveDate::from_ymd_opt($yr, $mo, $d)
-                                .unwrap_or_else(|| panic!(
-                                    "`{}/{}/{}` is not a valid date",
-                                    $mo,
-                                    $d,
-                                    $yr,
-                                )),
-                            None$(.or(Some(NaiveTime::from_hms_opt($hr, $m, 0)
-                                .unwrap_or_else(|| panic!(
-                                    "`{}:{}` is not a valid time",
-                                    $hr,
-                                    $m,
-                                )))))?
-                                .unwrap_or(NaiveTime::default()),
-                        ),
-                    ))
-                ))?,
-                deps: FxHashSet::from_iter([$(TaskId($dep)),*]),
-            }),*]
-                .into_iter()
-                .map(|task| (task.id, task))
-                .collect()
-        };
-    }
-
     #[test]
     fn test0() {
-        let tasks = test_project! {
+        let tasks = tasks! {
             5436: "foo" [4/12/2025 @ 5:30] {},
             2537: "bar" [4/12/2025] { 3423 },
             3423: "baz" { 5436 },
@@ -208,10 +173,10 @@ mod scheduler_tests {
         let dag = dep_graph(&tasks).unwrap();
         dbg_ord(&dag);
         assert_eq!(
-            dep_order(&dag)
+            &dep_order(&dag)
                 .map(|task| task.title.as_str())
                 .collect::<Vec<_>>(),
-            vec!["foo", "baz", "bar"]
+            &["foo", "baz", "bar"]
         );
     }
 }
