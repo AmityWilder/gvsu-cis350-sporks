@@ -69,18 +69,20 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     manager_toggled=tk.BooleanVar(value=False)
     employee_toggled=tk.BooleanVar(value=False)
 
+    
+
     start_center.pack(pady= 10)
     
-    manager=tk.Button(start_center, text="Manager", command=lambda:toggle_elements(manager_toggled,[task_button, user_button],Cancel_button))
+    manager=tk.Button(start_center, text="Manager", command=lambda:toggle_elements(manager_toggled,employee_toggled,managerlist,employeelist, Cancel_button))
     manager.pack(side=tk.LEFT, padx= 5)
-    employee=tk.Button(start_center, text="Employee", command=lambda:toggle_elements(employee_toggled,[names_label,names_menu, employee_time_button],Cancel_button))
+    employee=tk.Button(start_center, text="Employee", command=lambda:toggle_elements(employee_toggled,manager_toggled,employeelist,managerlist, Cancel_button))
     employee.pack(side=tk.LEFT)
 
     center.pack(anchor='center')
     below_center.pack(anchor='center')
     
     # Define the options for the dropdown
-    names = ["Apple", "Banana", "Orange", "Grape"]
+    names = ['-']
 
     names_label = tk.Label(center, text="Select employee")
     # Create a StringVar to hold the selected option
@@ -89,6 +91,8 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
     # Create the OptionMenu widget
     names_menu = tk.OptionMenu(center, selected_name, *names)
+    managerlist=[task_button, user_button]
+    employeelist=[names_label,names_menu, employee_time_button]
 
 
     
@@ -97,8 +101,8 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     textbox_visible = tk.BooleanVar(value=False)
 
     # Create the button
-    toggle_button = tk.Button(root, text="toggle Textbox", command=lambda:toggle_elements(textbox_visible,[entry_box],Cancel_button))
-    toggle_button.pack(pady=10)
+    #toggle_button = tk.Button(root, text="toggle Textbox", command=lambda:toggle_elements(textbox_visible,[entry_box],Cancel_button))
+    #toggle_button.pack(pady=10)
     # Create the Entry widget (initially hidden)
     entry_box = tk.Entry(root, width=30)
     entered=entry_box.get() # stores string entered into the text box
