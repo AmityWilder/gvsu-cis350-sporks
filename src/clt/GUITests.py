@@ -62,14 +62,14 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     Cancel_button = tk.Button(root, text="Cancel")
     
     #manager elements
-    task_button = tk.Button(center, text="Add Task", command=lambda: add_task(proxy))
+    task_button = tk.Button(center, text="Add Task", command=lambda: add_task(proxy, task_name))
     task_name = tk.Entry(center, width=30)
     title=task_name.get() # stores string entered into the text box
     #desc
     #skills
     #deadline
     #deps
-    user_button = tk.Button(center, text="Add Employee", command=lambda: add_user(proxy,user))
+    user_button = tk.Button(center, text="Add Employee", command=lambda: add_user(proxy,user_box))
     user_box = tk.Entry(center, width=30)
     user=user_box.get() # stores string entered into the text box
     timeslot_button = tk.Button(center, text="Add Timeslot")

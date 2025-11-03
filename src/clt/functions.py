@@ -13,11 +13,14 @@ def cancel(visiblelist, element, opp_element, Cancel):
         current.set(False)
     Cancel.pack_forget()
 
-def add_task(proxy):
-    added = proxy.add_tasks({'to_add': [{'title': "foo"}]})
+def add_task(proxy, title_box):
+    title=title_box.get()
+    title_box.delete(0,tk.END)
+    added = proxy.add_tasks({'to_add': [{'title': title}]})
 
-def add_user(proxy,name):
-
+def add_user(proxy,user_box):
+    name=user_box.get()
+    user_box.delete(0,tk.END)
     added = proxy.add_users({'to_add': [{'name': name}]})
 
 def toggle_elements(curr_element_visible,opp_element_visible, element, opp_element, Cancel):
