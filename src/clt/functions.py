@@ -1,8 +1,18 @@
 import time, xmlrpc.client, subprocess, atexit, tkinter as tk
 
-def on_button_click(label):
-    """Function to be called when the button is clicked."""
-    label.config(text="Button was clicked!")
+def cancel(curr_element_visible,opp_element_visible, element, opp_element, Cancel):
+    if curr_element_visible.get():  # If textbox is currently visible
+        for i in range(len(element)):
+            current=element[i]
+            current.pack_forget()  # Hide the textbox
+        curr_element_visible.set(False)
+        Cancel.pack_forget()
+    if opp_element_visible.get():
+        for n in range(len(opp_element)):
+            current=opp_element[n]
+            current.pack_forget()  # Hide the textbox
+        opp_element_visible.set(False)
+        Cancel.pack_forget()
 
 def add_task(proxy):
     added = proxy.add_tasks({'to_add': [{'title': "foo"}]})
