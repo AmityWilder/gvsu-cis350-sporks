@@ -48,8 +48,10 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     root.title("Spork Scheduler")
     root.geometry("640x480")
 
-    center=tk.Frame(root)
     start_center=tk.Frame(root)
+    center=tk.Frame(root)
+    below_center=tk.Frame(root)
+    
     
 
     # Create a label widget
@@ -57,10 +59,11 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     label.pack(pady=10) # Add some vertical padding
 
     # Create a button widget
-    button = tk.Button(root, text="Click Me", command=lambda: on_button_click(label))
+    Cancel_button = tk.Button(root, text="Cancel")
     task_button = tk.Button(center, text="Add Task", command=lambda: add_task(proxy))
     user_button = tk.Button(center, text="Add User", command=lambda: add_user(proxy))
-    button.pack(pady=20)
+    employee_time_button = tk.Button(below_center, text="Add Time")
+    
 
     #add manager and employee buttons
     manager_toggled=tk.BooleanVar(value=False)
@@ -68,30 +71,33 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
     start_center.pack(pady= 10)
     
-    manager=tk.Button(start_center, text="Manager", command=lambda:toggle_elements(manager_toggled,[task_button, user_button]))
+    manager=tk.Button(start_center, text="Manager", command=lambda:toggle_elements(manager_toggled,[task_button, user_button],Cancel_button))
     manager.pack(side=tk.LEFT, padx= 5)
-    employee=tk.Button(start_center, text="Employee")
+    employee=tk.Button(start_center, text="Employee", command=lambda:toggle_elements(employee_toggled,[names_label,names_menu, employee_time_button],Cancel_button))
     employee.pack(side=tk.LEFT)
 
     center.pack(anchor='center')
+    below_center.pack(anchor='center')
     
-
     # Define the options for the dropdown
-    options = ["Apple", "Banana", "Orange", "Grape"]
+    names = ["Apple", "Banana", "Orange", "Grape"]
 
+    names_label = tk.Label(center, text="Select employee")
     # Create a StringVar to hold the selected option
-    selected_option = tk.StringVar(root)
-    selected_option.set(options[0])  # Set the default value
+    selected_name = tk.StringVar(center)
+    selected_name.set(names[0])  # Set the default value
 
     # Create the OptionMenu widget
-    dropdown_menu = tk.OptionMenu(root, selected_option, *options)
-    dropdown_menu.pack(pady=10)
+    names_menu = tk.OptionMenu(center, selected_name, *names)
+
+
+    
 
     # Create a StringVar to track textbox visibility
     textbox_visible = tk.BooleanVar(value=False)
 
     # Create the button
-    toggle_button = tk.Button(root, text="toggle Textbox", command=lambda:toggle_elements(textbox_visible,[entry_box]))
+    toggle_button = tk.Button(root, text="toggle Textbox", command=lambda:toggle_elements(textbox_visible,[entry_box],Cancel_button))
     toggle_button.pack(pady=10)
     # Create the Entry widget (initially hidden)
     entry_box = tk.Entry(root, width=30)
