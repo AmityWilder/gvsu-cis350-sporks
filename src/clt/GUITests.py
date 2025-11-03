@@ -62,7 +62,8 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     Cancel_button = tk.Button(root, text="Cancel")
     task_button = tk.Button(center, text="Add Task", command=lambda: add_task(proxy))
     user_button = tk.Button(center, text="Add User", command=lambda: add_user(proxy))
-    employee_time_button = tk.Button(below_center, text="Add Time")
+    employee_time_button = tk.Button(center, text="Add Time")
+    timeslot_button = tk.Button(center, text="Add Timeslot")
     
 
     #add manager and employee buttons
@@ -81,19 +82,24 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     center.pack(anchor='center')
     below_center.pack(anchor='center')
     
+    orderframe=tk.Frame(center)
     # Define the options for the dropdown
     names = ['-']
 
-    names_label = tk.Label(center, text="Select employee")
+    names_label = tk.Label(orderframe, text="Select Employee:")
     # Create a StringVar to hold the selected option
-    selected_name = tk.StringVar(center)
+    selected_name = tk.StringVar(orderframe)
     selected_name.set(names[0])  # Set the default value
 
     # Create the OptionMenu widget
-    names_menu = tk.OptionMenu(center, selected_name, *names)
-    managerlist=[task_button, user_button]
-    employeelist=[names_label,names_menu, employee_time_button]
+    names_menu = tk.OptionMenu(orderframe, selected_name, *names)
+    names_label.pack(side=tk.LEFT, padx=5)
+    names_menu.pack(side=tk.LEFT)
 
+
+    managerlist=[task_button, user_button, timeslot_button]
+    employeelist=[orderframe, employee_time_button]
+    Cancel_button.config(command=lambda: cancel(manager_toggled,employee_toggled,managerlist,employeelist, Cancel_button))
 
     
 
