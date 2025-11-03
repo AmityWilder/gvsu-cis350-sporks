@@ -69,6 +69,9 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     #add manager and employee buttons
     manager_toggled=tk.BooleanVar(value=False)
     employee_toggled=tk.BooleanVar(value=False)
+    edit_toggled=tk.BooleanVar(value=False)
+
+    toggledlist=[manager_toggled,employee_toggled,edit_toggled]
 
     
 
@@ -78,6 +81,8 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     manager.pack(side=tk.LEFT, padx= 5)
     employee=tk.Button(start_center, text="Employee", command=lambda:toggle_elements(employee_toggled,manager_toggled,employeelist,managerlist, Cancel_button))
     employee.pack(side=tk.LEFT)
+    edit_button=tk.Button(start_center, text="Edit")
+    edit_button.pack(padx=5)
 
     center.pack(anchor='center')
     below_center.pack(anchor='center')
@@ -96,19 +101,19 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     names_label.pack(side=tk.LEFT, padx=5)
     names_menu.pack(side=tk.LEFT)
 
-
+    # toggled elements
     managerlist=[task_button, user_button, timeslot_button]
     employeelist=[orderframe, employee_time_button]
-    Cancel_button.config(command=lambda: cancel(manager_toggled,employee_toggled,managerlist,employeelist, Cancel_button))
+    editlist=[] #figure out what edit needs
+
+
+
+    Cancel_button.config(command=lambda: cancel(toggledlist,managerlist,employeelist, Cancel_button))
 
     
 
-    # Create a StringVar to track textbox visibility
-    textbox_visible = tk.BooleanVar(value=False)
-
     # Create the button
-    #toggle_button = tk.Button(root, text="toggle Textbox", command=lambda:toggle_elements(textbox_visible,[entry_box],Cancel_button))
-    #toggle_button.pack(pady=10)
+    
     # Create the Entry widget (initially hidden)
     entry_box = tk.Entry(root, width=30)
     entered=entry_box.get() # stores string entered into the text box
