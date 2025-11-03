@@ -16,8 +16,9 @@ def cancel(visiblelist, element, opp_element, Cancel):
 def add_task(proxy):
     added = proxy.add_tasks({'to_add': [{'title': "foo"}]})
 
-def add_user(proxy):
-    added = proxy.add_users({'to_add': [{'name': "Edward Coolguy"}]})
+def add_user(proxy,name):
+
+    added = proxy.add_users({'to_add': [{'name': name}]})
 
 def toggle_elements(curr_element_visible,opp_element_visible, element, opp_element, Cancel):
     # hide elements

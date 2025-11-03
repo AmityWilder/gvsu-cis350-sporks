@@ -60,33 +60,28 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
     # Create a button widget
     Cancel_button = tk.Button(root, text="Cancel")
+    
+    #manager elements
     task_button = tk.Button(center, text="Add Task", command=lambda: add_task(proxy))
-    user_button = tk.Button(center, text="Add User", command=lambda: add_user(proxy))
-    employee_time_button = tk.Button(center, text="Add Time")
+    task_name = tk.Entry(center, width=30)
+    title=task_name.get() # stores string entered into the text box
+    #desc
+    #skills
+    #deadline
+    #deps
+    user_button = tk.Button(center, text="Add Employee", command=lambda: add_user(proxy,user))
+    user_box = tk.Entry(center, width=30)
+    user=user_box.get() # stores string entered into the text box
     timeslot_button = tk.Button(center, text="Add Timeslot")
+
+    managerlist=[task_button, task_name,user_button, user_box, timeslot_button]
+
+
+    # employee elemenets
+    employee_time_button = tk.Button(center, text="Add Time")
     
+    employee_skills_button = tk.Button(center, text="Add Skill")
 
-    #add manager and employee buttons
-    manager_toggled=tk.BooleanVar(value=False)
-    employee_toggled=tk.BooleanVar(value=False)
-    edit_toggled=tk.BooleanVar(value=False)
-
-    toggledlist=[manager_toggled,employee_toggled,edit_toggled]
-
-    
-
-    start_center.pack(pady= 10)
-    
-    manager=tk.Button(start_center, text="Manager", command=lambda:toggle_elements(manager_toggled,employee_toggled,managerlist,employeelist, Cancel_button))
-    manager.pack(side=tk.LEFT, padx= 5)
-    employee=tk.Button(start_center, text="Employee", command=lambda:toggle_elements(employee_toggled,manager_toggled,employeelist,managerlist, Cancel_button))
-    employee.pack(side=tk.LEFT)
-    edit_button=tk.Button(start_center, text="Edit")
-    edit_button.pack(padx=5)
-
-    center.pack(anchor='center')
-    below_center.pack(anchor='center')
-    
     orderframe=tk.Frame(center)
     # Define the options for the dropdown
     names = ['-']
@@ -102,8 +97,34 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     names_menu.pack(side=tk.LEFT)
 
     # toggled elements
-    managerlist=[task_button, user_button, timeslot_button]
-    employeelist=[orderframe, employee_time_button]
+    
+    employeelist=[orderframe, employee_time_button, employee_skills_button]
+
+
+    #add manager and employee buttons
+    manager_toggled=tk.BooleanVar(value=False)
+    employee_toggled=tk.BooleanVar(value=False)
+    edit_toggled=tk.BooleanVar(value=False)
+
+    toggledlist=[manager_toggled,employee_toggled,edit_toggled]
+
+    
+
+    start_center.pack(pady= 10)
+    
+    manager=tk.Button(start_center, text="Manager", command=lambda:toggle_elements(manager_toggled,employee_toggled,managerlist,employeelist, Cancel_button))
+    manager.pack(side=tk.LEFT, padx= 5)
+
+    employee=tk.Button(start_center, text="Employee", command=lambda:toggle_elements(employee_toggled,manager_toggled,employeelist,managerlist, Cancel_button))
+    employee.pack(side=tk.LEFT)
+
+    edit_button=tk.Button(start_center, text="Edit")
+    edit_button.pack(padx=5)
+
+    center.pack(anchor='center')
+    below_center.pack(anchor='center')
+    
+    
     editlist=[] #figure out what edit needs
 
 
