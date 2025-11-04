@@ -26,7 +26,7 @@ use miette::Result;
 use petgraph::visit::Topo;
 use rustc_hash::{FxBuildHasher, FxHashMap};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, num::NonZeroUsize};
 use thiserror::Error;
 
 /// Error generated while attempting to create a schedule.
@@ -96,7 +96,7 @@ pub struct Schedule(pub Vec<(Slot, /* TaskSet, */ UserSet)>);
 impl Schedule {
     /// Generate a schedule based on the provided requirements.
     ///
-    /// See [module-level documentation](crate::algo) for more details.
+    /// See [module-level documentation](self) for more details.
     pub fn generate(
         slots: &[Slot],
         tasks: &TaskMap,
@@ -104,6 +104,30 @@ impl Schedule {
     ) -> Result<Self, SchedulingError> {
         let _deps = dep_graph(tasks)?;
         // let ord = dep_order(&deps);
+
+        let mut slot_candidates = slots
+            .iter()
+            .map(|slot| {
+                let interval = &slot.interval;
+                let candidates = users
+                    .values()
+                    .filter_map(|u| {
+                        let mut it = u
+                            .availability
+                            .iter()
+                            .filter(|(t, p)| *p > Preference::NEG_INFINITY && t.contains(interval))
+                            .peekable();
+
+                        it.peek()
+                            .is_some()
+                            .then(|| (u.id, it.map(|(t, p)| (*p, t)).collect()))
+                    })
+                    .collect();
+
+                (slot, candidates)
+            })
+            .collect::<Vec<(&Slot, UserMap<BTreeMap<Preference, &TimeInterval>>)>>();
+
         slots
             .iter()
             .map(|slot| {
@@ -170,7 +194,7 @@ impl Schedule {
                 Ok((slot.clone(), staff))
             })
             .collect::<Result<_, _>>()
-            .map(Self)
+            .map(Schedule)
     }
 }
 
