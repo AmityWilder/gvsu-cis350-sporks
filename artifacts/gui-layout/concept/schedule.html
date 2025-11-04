@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Sporks Scheduler</title>
+        <link rel="stylesheet" href="./style.css" />
+        <style>
+            tr > :first-child > input {
+                width: 50ch;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="topnav">
+            <a href="./slots.html">Shifts</a>
+            <a href="./users/list.html">Employees</a>
+            <a href="./tasks.html">Tasks</a>
+            <a href="./schedule.html" class="current">Schedule</a>
+        </div>
+
+        <datalist id="slots">
+            <option>2025-11-03T11:30 &ndash; 2025-11-03T13:30 | Afternoon</option>
+            <option>2025-11-03T11:30 &ndash; 2025-11-03T13:30</option>
+            <option>2025-11-03T11:30 &ndash; 2025-11-03T13:30 | Lunch</option>
+            <option>2025-11-03T11:30 &ndash; 2025-11-03T13:30 | Dinner</option>
+        </datalist>
+
+        <datalist id="tasks">
+            <option>3463: Wash Dishes</option>
+            <option>7443: Train New Hire</option>
+            <option>1254: Restock</option>
+            <option>6452: Write Budget</option>
+        </datalist>
+
+        <datalist id="users">
+            <option>7235: Bob Turmoil</option>
+            <option>3637: Sally Gimbal</option>
+            <option>3796: Sebastian Green</option>
+            <option>8646: Carol Windfall</option>
+            <option>7453: Emily Pallet</option>
+            <option>1257: George Conga</option>
+            <option>8674: Samantha Win</option>
+            <option>2267: Winslow Palace</option>
+            <option>4448: Jillian Gelatin</option>
+            <option>3452: Bob Turmoil</option>
+        </datalist>
+
+        <main>
+            <label>
+                Schedule
+                <table>
+                    <tr>
+                        <td>
+                            <div>2025-11-03T11:30 &ndash; 2025-11-03T13:30 | Afternoon</div>
+                            <div>
+                                <select multiple>
+                                    <option selected>3463: Wash Dishes</option>
+                                    <option>7443: Train New Hire</option>
+                                    <option>1254: Restock</option>
+                                    <option>6452: Write Budget</option>
+                                </select>
+                                <select multiple>
+                                    <option selected>7235: Bob Turmoil</option>
+                                    <option selected>3637: Sally Gimbal</option>
+                                    <option>3796: Sebastian Green</option>
+                                    <option>8646: Carol Windfall</option>
+                                    <option>7453: Emily Pallet</option>
+                                    <option>1257: George Conga</option>
+                                    <option selected>8674: Samantha Win</option>
+                                    <option>2267: Winslow Palace</option>
+                                    <option>4448: Jillian Gelatin</option>
+                                    <option>3452: Bob Turmoil</option>
+                                </select>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>
+                            <div>2025-11-03T11:30 &ndash; 2025-11-03T13:30</div>
+                            <div>
+                                <select multiple>
+                                    <option>3463: Wash Dishes</option>
+                                    <option>7443: Train New Hire</option>
+                                    <option selected>1254: Restock</option>
+                                    <option>6452: Write Budget</option>
+                                </select>
+                                <select multiple>
+                                    <option>7235: Bob Turmoil</option>
+                                    <option>3637: Sally Gimbal</option>
+                                    <option>3796: Sebastian Green</option>
+                                    <option>8646: Carol Windfall</option>
+                                    <option selected>7453: Emily Pallet</option>
+                                    <option>1257: George Conga</option>
+                                    <option>8674: Samantha Win</option>
+                                    <option>2267: Winslow Palace</option>
+                                    <option>4448: Jillian Gelatin</option>
+                                    <option>3452: Bob Turmoil</option>
+                                </select>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>
+                            <div>2025-11-03T11:30 &ndash; 2025-11-03T13:30 | Lunch</div>
+                            <div>
+                                <select multiple>
+                                    <option>3463: Wash Dishes</option>
+                                    <option selected>7443: Train New Hire</option>
+                                    <option>1254: Restock</option>
+                                    <option>6452: Write Budget</option>
+                                </select>
+                                <select multiple>
+                                    <option>7235: Bob Turmoil</option>
+                                    <option>3637: Sally Gimbal</option>
+                                    <option>3796: Sebastian Green</option>
+                                    <option>8646: Carol Windfall</option>
+                                    <option>7453: Emily Pallet</option>
+                                    <option>1257: George Conga</option>
+                                    <option>8674: Samantha Win</option>
+                                    <option selected>2267: Winslow Palace</option>
+                                    <option selected>4448: Jillian Gelatin</option>
+                                    <option>3452: Bob Turmoil</option>
+                                </select>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>
+                            <div>2025-11-03T11:30 &ndash; 2025-11-03T13:30 | Dinner</div>
+                            <div>
+                                <select multiple>
+                                    <option>3463: Wash Dishes</option>
+                                    <option>7443: Train New Hire</option>
+                                    <option>1254: Restock</option>
+                                    <option selected>6452: Write Budget</option>
+                                </select>
+                                <select multiple>
+                                    <option>7235: Bob Turmoil</option>
+                                    <option>3637: Sally Gimbal</option>
+                                    <option>3796: Sebastian Green</option>
+                                    <option>8646: Carol Windfall</option>
+                                    <option>7453: Emily Pallet</option>
+                                    <option selected>1257: George Conga</option>
+                                    <option>8674: Samantha Win</option>
+                                    <option>2267: Winslow Palace</option>
+                                    <option>4448: Jillian Gelatin</option>
+                                    <option>3452: Bob Turmoil</option>
+                                </select>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </label>
+        </main>
+    </body>
+</html>
