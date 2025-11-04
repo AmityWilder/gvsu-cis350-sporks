@@ -1,5 +1,30 @@
 import time, xmlrpc.client, subprocess, atexit, tkinter as tk
 
+
+
+
+def form_table(toggle,frame,list):
+    total_rows = len(list)
+    total_columns = len(list[0])
+    if toggle.get():  # If textbox is currently visible
+        frame.pack_forget()
+        toggle.set(False)
+        
+    
+    # show elements
+    else:  # If textbox is currently hidden
+        
+        for i in range(total_rows):
+            for j in range(total_columns):
+                
+                e = tk.Entry(frame, width=20, fg='blue',
+                               font=('Arial',12,'bold'))
+                
+                e.grid(row=i, column=j)
+                e.insert(tk.END, list[i][j])
+        frame.pack(anchor='center')
+        toggle.set(True)
+
 def cancel(visiblelist, element, opp_element, Cancel):
     for i in range(len(element)):
         current=element[i]

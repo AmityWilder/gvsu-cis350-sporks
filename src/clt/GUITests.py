@@ -2,6 +2,22 @@ import time, xmlrpc.client, subprocess, atexit, tkinter as tk
 from tkinter import ttk
 from functions import *
 
+
+
+
+# take the data
+lst = [('ID','Name','Location','Age'),
+       (1,'Raj','Mumbai', 19),
+       (2,'Aaryan','Pune',18),
+       (3,'Vaishnavi','Mumbai',20),
+       (4,'Rachna','Mumbai',21),
+       (5,'Shubham','Delhi',21)]
+ 
+# find total number of rows and
+# columns in list
+total_rows = len(lst)
+total_columns = len(lst[0])
+
 IS_DEBUG_BUILD = True
 if IS_DEBUG_BUILD:
     BUILD = "debug"
@@ -96,9 +112,12 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     names_label.pack(side=tk.LEFT, padx=5)
     names_menu.pack(side=tk.LEFT)
 
+    frame_toggled=tk.BooleanVar(value=False)
+    table_button = tk.Button(center, text='create table', command=lambda: form_table(frame_toggled,below_center,lst))
+
     # toggled elements
     
-    employeelist=[orderframe, employee_time_button, employee_skills_button]
+    employeelist=[orderframe, employee_time_button, employee_skills_button,table_button]
 
 
     #add manager and employee buttons
@@ -122,7 +141,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     edit_button.pack(padx=5)
 
     center.pack(anchor='center')
-    below_center.pack(anchor='center')
+    
     
     
     editlist=[] #figure out what edit needs
