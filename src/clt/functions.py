@@ -3,27 +3,28 @@ import time, xmlrpc.client, subprocess, atexit, tkinter as tk
 
 
 
-def form_table(toggle,frame,list):
+def form_table(frame,list):
+    list.append(('','','','',))
     total_rows = len(list)
     total_columns = len(list[0])
-    if toggle.get():  # If textbox is currently visible
-        frame.pack_forget()
-        toggle.set(False)
+    # if toggle.get():  # If textbox is currently visible
+    #     frame.pack_forget()
+    #     toggle.set(False)
         
     
     # show elements
-    else:  # If textbox is currently hidden
+    # else:  # If textbox is currently hidden
         
-        for i in range(total_rows):
-            for j in range(total_columns):
+    for i in range(total_rows):
+        for j in range(total_columns):
                 
-                e = tk.Entry(frame, width=20, fg='blue',
+            e = tk.Entry(frame, width=20, fg='blue',
                                font=('Arial',12,'bold'))
                 
-                e.grid(row=i, column=j)
-                e.insert(tk.END, list[i][j])
-        frame.pack(anchor='center')
-        toggle.set(True)
+            e.grid(row=i, column=j)
+            e.insert(tk.END, list[i][j])
+    frame.pack(anchor='center')
+
 
 def cancel(visiblelist, element, opp_element, Cancel):
     for i in range(len(element)):
@@ -43,10 +44,9 @@ def add_task(proxy, title_box):
     title_box.delete(0,tk.END)
     added = proxy.add_tasks({'to_add': [{'title': title}]})
 
-def add_user(proxy,user_box):
-    name=user_box.get()
-    user_box.delete(0,tk.END)
-    added = proxy.add_users({'to_add': [{'name': name}]})
+def add_user(proxy):
+    
+    added = proxy.add_users({'to_add': [{'name': 'example'}]})
 
 def toggle_elements(curr_element_visible,opp_element_visible, element, opp_element, Cancel):
     # hide elements
