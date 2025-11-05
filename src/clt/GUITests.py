@@ -6,12 +6,8 @@ from functions import *
 
 
 # take the data
-lst = [('ID','Name','Skills','Age'),
-       (1,'Raj','Mumbai', 19),
-       (2,'Aaryan','Pune',18),
-       (3,'Vaishnavi','Mumbai',20),
-       (4,'Rachna','Mumbai',21),
-       (5,'Shubham','Delhi',21)]
+lst = [('ID','Name','Skills','Preferences'),
+       ]
  
 # find total number of rows and
 # columns in list
@@ -63,6 +59,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     #root.bind_all("<Button-1>", lambda event: event.widget.focus_set())
     root.title("Spork Scheduler")
     root.geometry("640x480")
+    
 
 
     tabControl = ttk.Notebook(root)
@@ -71,6 +68,9 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     tab2 = ttk.Frame(tabControl)
     tab3 = ttk.Frame(tabControl)
     tab4 = ttk.Frame(tabControl)
+    
+    scrollbar=tk.Scrollbar(tabControl)
+    
 
     tabControl.add(tab1, text ='Shifts')
     tabControl.add(tab2, text ='Employees')
@@ -78,10 +78,14 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     tabControl.add(tab4, text ='Schedule')
 
     tabControl.pack(expand = 1, fill ="both")
+    scrollbar.pack(side=tk.RIGHT,fill='y')
+    
 
 
     shift_center=ttk.Frame(tab1)
+    shift_table=ttk.Frame(tab1)
     employee_center=ttk.Frame(tab2)
+    employee_table=ttk.Frame(tab2)
     task_center=ttk.Frame(tab3)
     schedule_center=ttk.Frame(tab4)
 
@@ -98,8 +102,19 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     selected_name = tk.StringVar()
     namemenue = ttk.Combobox(employee_center, width=30,values=employeelist,textvariable=selected_name)
     namemenue.pack(side=tk.LEFT, padx=5)
+    add_employee=ttk.Button(employee_center,text='Add employee', command=lambda: form_table(employee_table,lst))
+    add_employee.pack(side=tk.LEFT)
+
+    for j in range(total_columns):
+                
+        e = tk.Entry(employee_table, width=20, fg='blue',
+                               font=('Arial',12,'bold'))
+                
+        e.grid(row=0, column=j)
+        e.insert(tk.END, lst[0][j])
 
     employee_center.pack(expand=0,fill='x')
+    employee_table.pack(pady=10)
 
     # task tab
 
