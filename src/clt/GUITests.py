@@ -64,99 +64,125 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     root.title("Spork Scheduler")
     root.geometry("640x480")
 
-    start_center=tk.Frame(root)
-    center=tk.Frame(root)
-    below_center=tk.Frame(root)
+
+    tabControl = ttk.Notebook(root)
+
+    tab1 = ttk.Frame(tabControl)
+    tab2 = ttk.Frame(tabControl)
+    tab3 = ttk.Frame(tabControl)
+    tab4 = ttk.Frame(tabControl)
+
+    tabControl.add(tab1, text ='Shifts')
+    tabControl.add(tab2, text ='Employees')
+    tabControl.add(tab3, text ='Tasks')
+    tabControl.add(tab4, text ='Schedule')
+
+    tabControl.pack(expand = 1, fill ="both")
+
+
+    shift_center=ttk.Frame(tab1)
+    employee_center=ttk.Frame(tab2)
+    task_center=ttk.Frame(tab3)
+    schedule_center=ttk.Frame(tab4)
+
+    ttk.Label(shift_center,text='Create shifts',font=('Arial',12,'bold')).pack(pady=10)
+
+    shift_center.pack()
+    # center=tk.Frame(root)
+    # below_center=tk.Frame(root)
     
     
 
-    # Create a label widget
-    label = tk.Label(root, text="Welcome!")
-    label.pack(pady=10) # Add some vertical padding
+    # # Create a label widget
+    # label = tk.Label(root, text="Welcome!")
+    # label.pack(pady=10) # Add some vertical padding
 
-    # Create a button widget
-    Cancel_button = tk.Button(root, text="Cancel")
+    # # Create a button widget
+    # Cancel_button = tk.Button(root, text="Cancel")
     
-    #manager elements
-    task_button = tk.Button(center, text="Add Task", command=lambda: add_task(proxy, task_name))
-    task_name = tk.Entry(center, width=30)
-    title=task_name.get() # stores string entered into the text box
-    #desc
-    #skills
-    #deadline
-    #deps
-    user_button = tk.Button(center, text="Add Employee", command=lambda: add_user(proxy,user_box))
-    user_box = tk.Entry(center, width=30)
-    user=user_box.get() # stores string entered into the text box
-    timeslot_button = tk.Button(center, text="Add Timeslot")
+    # #manager elements
+    # task_button = tk.Button(center, text="Add Task", command=lambda: add_task(proxy, task_name))
+    # task_name = tk.Entry(center, width=30)
+    # title=task_name.get() # stores string entered into the text box
+    # #desc
+    # #skills
+    # #deadline
+    # #deps
+    # user_button = tk.Button(center, text="Add Employee", command=lambda: add_user(proxy,user_box))
+    # user_box = tk.Entry(center, width=30)
+    # user=user_box.get() # stores string entered into the text box
+    # timeslot_button = tk.Button(center, text="Add Timeslot")
 
-    managerlist=[task_button, task_name,user_button, user_box, timeslot_button]
+    # managerlist=[task_button, task_name,user_button, user_box, timeslot_button]
 
 
-    # employee elemenets
-    employee_time_button = tk.Button(center, text="Add Time")
+    # # employee elemenets
+    # employee_time_button = tk.Button(center, text="Add Time")
     
-    employee_skills_button = tk.Button(center, text="Add Skill")
+    # employee_skills_button = tk.Button(center, text="Add Skill")
 
-    orderframe=tk.Frame(center)
-    # Define the options for the dropdown
-    names = ['-']
-
-    names_label = tk.Label(orderframe, text="Select Employee:")
-    # Create a StringVar to hold the selected option
-    selected_name = tk.StringVar(orderframe)
-    selected_name.set(names[0])  # Set the default value
-
-    # Create the OptionMenu widget
-    names_menu = tk.OptionMenu(orderframe, selected_name, *names)
-    names_label.pack(side=tk.LEFT, padx=5)
-    names_menu.pack(side=tk.LEFT)
-
-    frame_toggled=tk.BooleanVar(value=False)
-    table_button = tk.Button(center, text='create table', command=lambda: form_table(frame_toggled,below_center,lst))
-
-    # toggled elements
-    
-    employeelist=[orderframe, employee_time_button, employee_skills_button,table_button]
-
-
-    #add manager and employee buttons
-    manager_toggled=tk.BooleanVar(value=False)
-    employee_toggled=tk.BooleanVar(value=False)
-    edit_toggled=tk.BooleanVar(value=False)
-
-    toggledlist=[manager_toggled,employee_toggled,edit_toggled]
-
+    # orderframe=tk.Frame(center)
+    # # Define the options for the dropdown
     
 
-    start_center.pack(pady= 10)
+    # names_label = tk.Label(orderframe, text="Select Employee:")
+    # # Create a StringVar to hold the selected option
+    # selected_name = tk.StringVar()
     
-    manager=tk.Button(start_center, text="Manager", command=lambda:toggle_elements(manager_toggled,employee_toggled,managerlist,employeelist, Cancel_button))
-    manager.pack(side=tk.LEFT, padx= 5)
 
-    employee=tk.Button(start_center, text="Employee", command=lambda:toggle_elements(employee_toggled,manager_toggled,employeelist,managerlist, Cancel_button))
-    employee.pack(side=tk.LEFT)
+    # # Create the OptionMenu widget
+    # names_menu = ttk.Combobox(orderframe, width=30, textvariable=selected_name)
+    # names_menu['values']=('-',
+    #                       'example',
+    #                       'jim')
+    # names_label.pack(side=tk.LEFT, padx=5)
+    # names_menu.pack(side=tk.LEFT)
 
-    edit_button=tk.Button(start_center, text="Edit")
-    edit_button.pack(padx=5)
+    # frame_toggled=tk.BooleanVar(value=False)
+    # table_button = tk.Button(center, text='create table', command=lambda: form_table(frame_toggled,below_center,lst))
 
-    center.pack(anchor='center')
+    # # toggled elements
     
-    
-    
-    editlist=[] #figure out what edit needs
+    # employeelist=[orderframe, employee_time_button, employee_skills_button,table_button]
 
 
+    # #add manager and employee buttons
+    # manager_toggled=tk.BooleanVar(value=False)
+    # employee_toggled=tk.BooleanVar(value=False)
+    # edit_toggled=tk.BooleanVar(value=False)
 
-    Cancel_button.config(command=lambda: cancel(toggledlist,managerlist,employeelist, Cancel_button))
+    # toggledlist=[manager_toggled,employee_toggled,edit_toggled]
 
     
 
-    # Create the button
+    # start_center.pack(pady= 10)
     
-    # Create the Entry widget (initially hidden)
-    entry_box = tk.Entry(root, width=30)
-    entered=entry_box.get() # stores string entered into the text box
+    # manager=tk.Button(start_center, text="Manager", command=lambda:toggle_elements(manager_toggled,employee_toggled,managerlist,employeelist, Cancel_button))
+    # manager.pack(side=tk.LEFT, padx= 5)
+
+    # employee=tk.Button(start_center, text="Employee", command=lambda:toggle_elements(employee_toggled,manager_toggled,employeelist,managerlist, Cancel_button))
+    # employee.pack(side=tk.LEFT)
+
+    # edit_button=tk.Button(start_center, text="Edit")
+    # edit_button.pack(padx=5)
+
+    # center.pack(anchor='center')
+    
+    
+    
+    # editlist=[] #figure out what edit needs
+
+
+
+    # Cancel_button.config(command=lambda: cancel(toggledlist,managerlist,employeelist, Cancel_button))
+
+    
+
+    # # Create the button
+    
+    # # Create the Entry widget (initially hidden)
+    # entry_box = tk.Entry(root, width=30)
+    # entered=entry_box.get() # stores string entered into the text box
 
     # Start the main event loop
     root.mainloop()
