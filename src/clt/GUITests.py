@@ -6,7 +6,7 @@ from functions import *
 
 
 # take the data
-lst = [('ID','Name','Location','Age'),
+lst = [('ID','Name','Skills','Age'),
        (1,'Raj','Mumbai', 19),
        (2,'Aaryan','Pune',18),
        (3,'Vaishnavi','Mumbai',20),
@@ -60,7 +60,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     # Create the main window
     root = tk.Tk()
     #removes focus
-    root.bind_all("<Button-1>", lambda event: event.widget.focus_set())
+    #root.bind_all("<Button-1>", lambda event: event.widget.focus_set())
     root.title("Spork Scheduler")
     root.geometry("640x480")
 
@@ -85,9 +85,25 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     task_center=ttk.Frame(tab3)
     schedule_center=ttk.Frame(tab4)
 
-    ttk.Label(shift_center,text='Create shifts',font=('Arial',12,'bold')).pack(pady=10)
+    # shift tab
+    ttk.Label(tab1,text='Create shifts',font=('Arial',12,'bold')).pack(pady=10)
 
     shift_center.pack()
+
+    # employee tab
+    ttk.Label(tab2,text='Employees',font=('Arial',12,'bold')).pack(pady=10)
+    employeelist=['-',
+                  'example',
+                  'jim']
+    selected_name = tk.StringVar()
+    namemenue = ttk.Combobox(employee_center, width=30,values=employeelist,textvariable=selected_name)
+    namemenue.pack(side=tk.LEFT, padx=5)
+
+    employee_center.pack(expand=0,fill='x')
+
+    # task tab
+
+    # schedule tab
     # center=tk.Frame(root)
     # below_center=tk.Frame(root)
     
