@@ -6,13 +6,7 @@ from functions import *
 
 
 # take the data
-lst = [('ID','Name','Skills','Preferences'),
-       ]
- 
-# find total number of rows and
-# columns in list
-total_rows = len(lst)
-total_columns = len(lst[0])
+
 
 IS_DEBUG_BUILD = True
 if IS_DEBUG_BUILD:
@@ -87,14 +81,43 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     employee_center=ttk.Frame(tab2)
     employee_table=ttk.Frame(tab2)
     task_center=ttk.Frame(tab3)
+    task_table=ttk.Frame(tab3)
     schedule_center=ttk.Frame(tab4)
 
     # shift tab
+    sft_lst = [('Time','Skills','Min Employees'),
+       ]
+ 
+    # find total number of rows and
+    # columns in list
+    sft_rows = len(sft_lst)
+    sft_columns = len(sft_lst[0])
     ttk.Label(tab1,text='Create shifts',font=('Arial',12,'bold')).pack(pady=10)
 
+    
+
+    for j in range(sft_columns):
+                
+        e = tk.Entry(shift_table, width=20, fg='blue',
+                               font=('Arial',12,'bold'))
+                
+        e.grid(row=0, column=j)
+        e.insert(tk.END, sft_lst[0][j])
+    add_shift=ttk.Button(shift_center,text='Add shift', command=lambda: form_table(shift_table,sft_lst))
+    add_shift.pack(side=tk.LEFT)
+
     shift_center.pack()
+    shift_table.pack(pady=20)
 
     # employee tab
+    lst = [('ID','Name','Skills','Preferences'),
+       ]
+ 
+    # find total number of rows and
+    # columns in list
+    total_columns = len(lst[0])
+
+
     ttk.Label(tab2,text='Employees',font=('Arial',12,'bold')).pack(pady=10)
     employeelist=['-',
                   'example',
@@ -116,8 +139,31 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     employee_center.pack(expand=0,fill='x')
     employee_table.pack(pady=10)
 
-    # task tab
 
+    # task tab
+    tsk_lst = [('Name','Deadline','Skills','Min Employees'),
+       ]
+ 
+    # find total number of rows and
+    # columns in list
+    tsk_rows = len(tsk_lst)
+    tsk_columns = len(tsk_lst[0])
+    ttk.Label(tab3,text='Create Tasks',font=('Arial',12,'bold')).pack(pady=10)
+
+    
+
+    for j in range(tsk_columns):
+                
+        e = tk.Entry(task_table, width=20, fg='blue',
+                               font=('Arial',12,'bold'))
+                
+        e.grid(row=0, column=j)
+        e.insert(tk.END, tsk_lst[0][j])
+    add_task=ttk.Button(task_center,text='Add Task', command=lambda: form_table(task_table,tsk_lst))
+    add_task.pack(side=tk.LEFT)
+
+    task_center.pack()
+    task_table.pack(pady=20)
     # schedule tab
     # center=tk.Frame(root)
     # below_center=tk.Frame(root)
