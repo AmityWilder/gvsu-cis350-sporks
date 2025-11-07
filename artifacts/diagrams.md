@@ -47,55 +47,132 @@ gantt
     Schedule                                : de-sch, after alg-avail, 2025-11-17
 ```
 
-# Requirements
+# Class Diagram
 ```mermaid
-requirementDiagram
-
-requirement req {
-
-}
-
-element scheduler {
-
-}
-
-scheduler - satisfies -> req
-```
-
-# Flowchart
-```mermaid
-flowchart TD
-
-    start@{shape: start}
-    -->
-    uom[user vs manager]@{shape: decision}
-    uom --> manager --> generate
-    uom --> user --> availability@{shape: manual-input}
-```
-
-# Components
-```mermaid
+---
+config:
+  layout: elk
+---
 classDiagram
-    class UserId {
-        -u32
+    class TimeInterval {
+        +Range~DateTime~
     }
-    class TaskId {
-        -u64
+    class Client {
     }
+    class Server {
+        -List~Slot~ slots
+        -Table~Task~ tasks
+        -Table~User~ users
+        +add_slots(Iterable~PySlot~ slots)
+        +add_tasks(Iterable~PyTask~ tasks) Iterable~TaskId~
+        +add_users(Iterable~PyUser~ users) Iterable~UserId~
+        +generate() Schedule
+    }
+    Server "1" <..> "1" Client
+    Server "1" ..> "1..*" Slot
+    Server "1" ..> "1..*" Task
+    Server "1" ..> "1..*" User
+    Server "1" ..> "1..*" PySlot
+    Client "1" ..> "1..*" PySlot
+    Server "1" ..> "1..*" PyTask
+    Client "1" ..> "1..*" PyTask
+    Server "1" ..> "1..*" PyUser
+    Client "1" ..> "1..*" PyUser
     class Slot {
-        +Range~DateTime~ time
+        +TimeInterval interval
+        +usize min_staff
+        +Optional~str~ name
+        +overlaps(Slot other) bool
+        +contains(Slot other) bool
+    }
+    Slot --> TimeInterval
+    class PySlot {
+        +Optional~TimeInterval~ interval
+        +Optional~int~ min_staff
+        +Optional~str~ name
+    }
+    PySlot --> TimeInterval
+    class Task {
+        ~TaskId id
+        +str title
+        +Optional~DateTime~ deadline
+        +Set~TaskId~ dependencies
+        +id() TaskId
+    }
+    class PyTask {
+
+        +str title
+        +Optional~DateTime~ deadline
+        +Iterable~TaskId~ dependencies
     }
     class User {
         ~UserId id
-        +String name
+        +str name
         +Availability availability
-        +Set~Skill~ skills
         +id() UserId
     }
-    class Task {
-        ~TaskId id
-        +String title
-        +List~Skill~ skill_reqs
-        +id() TaskId
+    class PyUser {
+        +Optional~str~ name
     }
+    class Schedule {
+        +association of slots with tasks and users
+        +generate(slots, tasks, users) Schedule$
+    }
+    Schedule "1" --> "1..*" Slot
+    Schedule "1" --> "1..*" Task
+    Schedule "1" --> "1..*" User
+```
+
+# Sequence Diagram
+```mermaid
+sequenceDiagram
+    actor e as Employees
+    actor m as Manager
+    box Application
+        participant c as Client
+        participant s as Server
+    end
+    m ->>+ c : Open software
+    c ->>+ s : Initialize server
+    deactivate c
+    loop
+        loop Provide data
+            alt Time slots
+                m ->>+ c : Provide time slots
+                c ->>+ s : Add time slots
+                deactivate c
+                deactivate s
+            else Users
+                e -) m : Give info
+                m ->>+ c : Provide users
+                c ->>+ s : Add users
+                s -->>- c : Return user IDs
+                deactivate c
+            else Tasks
+                m ->>+ c : Provide tasks
+                c ->>+ s : Add tasks
+                s -->>- c : Return task IDs
+                deactivate c
+            else Availability
+                e -) m : Provide availability
+                m ->>+ c : Provide availability
+                c ->>+ s : Add availability
+                deactivate c
+                deactivate s
+            end
+        end
+        m ->>+ c : Request schedule
+        c ->>+ s : Generate schedule
+        s -->>- c : Return schedule
+        c -->>- m : Present schedule
+        loop
+            m ->>+ c : Make edits
+            c -->>- m : Present new schedule
+        end
+    end
+    m ->>+ c : Close software
+    c -) s : Shutdown server
+    deactivate s
+    deactivate c
+    m --) e : Share schedule
 ```
