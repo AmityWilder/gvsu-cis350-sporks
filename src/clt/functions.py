@@ -1,9 +1,12 @@
 import time, xmlrpc.client, subprocess, atexit, tkinter as tk
 
 
+def updateScrollRegion(canvas,frame):
+	canvas.update_idletasks()
+	canvas.config(scrollregion=frame.bbox())
 
-
-def form_table(frame,list):
+def form_table(canvas,frame,list):
+    
     list.append(('','','','',))
     total_rows = len(list)
     total_columns = len(list[0])
@@ -18,12 +21,13 @@ def form_table(frame,list):
     for i in range(total_rows):
         for j in range(total_columns):
                 
-            e = tk.Entry(frame, width=20, fg='blue',
+            e = tk.Entry(frame ,width=20, fg='blue',
                                font=('Arial',12,'bold'))
                 
             e.grid(row=i, column=j)
             e.insert(tk.END, list[i][j])
-    frame.pack(anchor='center')
+    
+    updateScrollRegion(canvas,frame)
 
 
 def cancel(visiblelist, element, opp_element, Cancel):
