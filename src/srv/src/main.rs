@@ -25,27 +25,28 @@
     forbid(clippy::todo, reason = "production code should not use `todo`")
 )]
 
-use crate::data::*;
-use chrono::{DateTime, Utc};
+use crate::{
+    data::*,
+    integration::{EXIT_REQUESTED, NEXT_TASK_ID, NEXT_USER_ID, SLOTS, TASKS, USERS},
+};
 use clap::{
     Parser,
     builder::{Styles, styling::AnsiColor},
 };
 use miette::{IntoDiagnostic, LabeledSpan, NamedSource, Result, SourceOffset, miette};
-use parking_lot::Mutex;
-use rustc_hash::{FxHashMap, FxHashSet};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Serialize, de::DeserializeOwned};
 use std::{
     fs::File,
     io::BufReader,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::{Path, PathBuf},
-    sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering::Relaxed},
+    sync::atomic::Ordering::Relaxed,
 };
-use xml_rpc::{Fault, Server};
+use xml_rpc::Server;
 
 pub mod algo;
 pub mod data;
+pub mod integration;
 
 const STYLE: Styles = Styles::styled()
     .header(AnsiColor::Green.on_default().bold())
@@ -165,158 +166,27 @@ fn main() -> Result<()> {
         }
     }
 
-    let mut users = try_load::<UserMap>(&users, "user")?;
-    let _slots = try_load::<Vec<Slot>>(&slots, "time slot")?;
-    let mut tasks = try_load::<TaskMap>(&tasks, "task")?;
+    let slots = try_load::<Vec<Slot>>(&slots, "slot")?;
+    let tasks = try_load::<TaskMap>(&tasks, "task")?;
+    let users = try_load::<UserMap>(&users, "user")?;
 
-    // let schedule =
-    //     Schedule::generate(&dbg!(slots), &dbg!(tasks), &dbg!(users)).into_diagnostic()?;
-
-    // serde_json::to_writer(File::create(output).into_diagnostic()?, &dbg!(schedule))
-    //     .into_diagnostic()?;
+    NEXT_TASK_ID.store(tasks.keys().map(|k| k.0 + 1).max().unwrap_or(0), Relaxed);
+    NEXT_USER_ID.store(users.keys().map(|k| k.0 + 1).max().unwrap_or(0), Relaxed);
+    *SLOTS.lock() = slots;
+    **TASKS.lock() = tasks;
+    **USERS.lock() = users;
 
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
     let mut server = Server::new();
 
-    static EXIT_REQUESTED: AtomicBool = const { AtomicBool::new(false) };
-    static NEXT_USER_ID: AtomicU32 = const { AtomicU32::new(0) };
-    static NEXT_TASK_ID: AtomicU64 = const { AtomicU64::new(0) };
-    static TASKS_TO_ADD: Mutex<Vec<Task>> = const { Mutex::new(Vec::new()) };
-    static USERS_TO_ADD: Mutex<Vec<User>> = const { Mutex::new(Vec::new()) };
-
-    NEXT_USER_ID.store(users.keys().map(|k| k.0).max().unwrap_or(0), Relaxed);
-    NEXT_TASK_ID.store(tasks.keys().map(|k| k.0).max().unwrap_or(0), Relaxed);
-
-    // quit
-    {
-        server.register_simple("quit", |()| {
-            EXIT_REQUESTED.store(true, Relaxed);
-            Ok(())
-        });
-    }
-
-    // add_users
-    {
-        /// Python requirements for constructing a [`User`]
-        #[derive(Debug, Serialize, Deserialize)]
-        pub struct PyUser {
-            name: String,
-        }
-
-        impl From<(UserId, PyUser)> for User {
-            #[inline]
-            fn from((id, user): (UserId, PyUser)) -> Self {
-                let PyUser { name, .. } = user;
-                User {
-                    id,
-                    name,
-                    availability: Vec::new(),
-                    user_prefs: FxHashMap::default(),
-                    skills: FxHashMap::default(),
-                }
-            }
-        }
-
-        #[derive(Debug, Serialize, Deserialize)]
-        struct AddUsersParams {
-            to_add: Vec<PyUser>,
-        }
-
-        server.register_simple(
-            "add_users",
-            |AddUsersParams { to_add }: AddUsersParams| -> Result<Vec<UserId>, Fault> {
-                println!("srv: recieved users: {to_add:?}");
-                let additional = to_add.len().try_into().unwrap();
-                let start = NEXT_USER_ID.fetch_add(additional, Relaxed);
-                let ids = (start..start + additional).map(UserId);
-                USERS_TO_ADD
-                    .lock()
-                    .extend(ids.clone().zip(to_add).map(User::from));
-                Ok(ids.collect())
-            },
-        );
-    }
-
-    // add_tasks
-    {
-        /// Python requirements for constructing a [`Task`]
-        #[derive(Debug, Serialize, Deserialize)]
-        pub struct PyTask {
-            title: String,
-            desc: Option<String>,
-            deadline: Option<DateTime<Utc>>,
-            awaiting: Option<Vec<TaskId>>,
-        }
-
-        impl From<(TaskId, PyTask)> for Task {
-            #[inline]
-            fn from((id, task): (TaskId, PyTask)) -> Self {
-                let PyTask {
-                    title, deadline, ..
-                } = task;
-                Task {
-                    id,
-                    title,
-                    desc: task.desc.unwrap_or_default(),
-                    skills: FxHashMap::default(),
-                    deadline,
-                    deps: task.awaiting.map(FxHashSet::from_iter).unwrap_or_default(),
-                }
-            }
-        }
-
-        #[derive(Debug, Serialize, Deserialize)]
-        struct AddTasksParams {
-            to_add: Vec<PyTask>,
-        }
-
-        server.register_simple(
-            "add_tasks",
-            |AddTasksParams { to_add }: AddTasksParams| -> Result<Vec<TaskId>, Fault> {
-                println!("srv: recieved tasks: {to_add:?}");
-                let additional = to_add.len().try_into().unwrap();
-                let start = NEXT_TASK_ID.fetch_add(additional, Relaxed);
-                let ids = (start..start + additional).map(TaskId);
-                TASKS_TO_ADD
-                    .lock()
-                    .extend(ids.clone().zip(to_add).map(Task::from));
-                Ok(ids.collect())
-            },
-        );
-    }
+    integration::register(&mut server);
 
     let bound_server = server.bind(&socket).unwrap();
     let _marker = RunningHandle::init();
     loop {
         bound_server.poll();
-
-        {
-            let mut tasks_to_add = TASKS_TO_ADD.lock();
-            if !tasks_to_add.is_empty() {
-                println!("srv: adding tasks: {tasks_to_add:?}");
-                tasks.extend(
-                    std::mem::take(&mut *tasks_to_add)
-                        .into_iter()
-                        .map(|task| (task.id, task)),
-                );
-            }
-        }
-
-        {
-            let mut users_to_add = USERS_TO_ADD.lock();
-            if !users_to_add.is_empty() {
-                println!("srv: adding users: {users_to_add:?}");
-                users.extend(
-                    std::mem::take(&mut *users_to_add)
-                        .into_iter()
-                        .map(|user| (user.id, user)),
-                );
-            }
-        }
-
         if EXIT_REQUESTED.load(Relaxed) {
-            break;
+            break Ok(());
         }
     }
-    Ok(())
 }
