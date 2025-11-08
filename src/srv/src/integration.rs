@@ -24,6 +24,9 @@ pub(crate) static USERS: Mutex<LazyLock<UserMap>> = Mutex::new(LazyLock::new(Use
 pub(crate) static NEXT_USER_ID: AtomicU64 = AtomicU64::new(0);
 pub(crate) static NEXT_TASK_ID: AtomicU64 = AtomicU64::new(0);
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PyRule {}
+
 /// Python requirements for constructing a [`Slot`]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PySlot {
@@ -112,21 +115,21 @@ impl From<(UserId, PyUser)> for User {
     }
 }
 
-/// Close the server after completing all ongoing tasks.
+/// Add one or more availability rules to one or more users, returning a list of any IDs that failed to be modified (ex: user with that ID did not exist).
 ///
 /// # Syntax
 /// ```py
-/// def quit(p: {}) -> None;
+/// def add_rules(p: {'to_add': dict[
+///   UserId,
+///   list[{
+///     'start': datetime,
+///     'end': datetime,  # must be >= `start`
+///     'pref': float,    # must be between -1 and +1, or exactly +/-infinity
+///   }]
+/// ]}) -> list[UserId];
 /// ```
-///
-/// # Examples
-/// ```py
-/// # request server close
-/// proxy.quit({})
-/// ```
-pub fn quit(_: ()) -> Result<()> {
-    EXIT_REQUESTED.store(true, std::sync::atomic::Ordering::Relaxed);
-    Ok(())
+pub fn add_rules((): ()) -> Result<()> {
+    todo!()
 }
 
 /// Insert one or more slots into the slot list.
@@ -241,9 +244,143 @@ pub fn add_users(to_add: Vec<PyUser>) -> Result<Vec<UserId>> {
     Ok(ids.collect())
 }
 
+pub fn get_rules((): ()) -> Result<()> {
+    todo!()
+}
+
+/// Returns an array of all current slots
+///
+/// # Syntax
+/// ```py
+/// def get_slots(p: {
+///   'starting_before': datetime | None,
+///   'starting_after': datetime | None,
+///   'ending_before': datetime | None,
+///   'ending_after': datetime | None,
+///   'min_staff_min': int | None,  # must be positive
+///   'min_staff_max': int | None,  # must be positive and >= `min_staff_min`
+///   'name_pat': str | None,       # regex
+/// }) -> list[{
+///   'start': datetime,
+///   'end': datetime,
+///   'min_staff': int | None,      # will always be >=1 if not None
+///   'name': str | None,
+/// }];
+/// ```
+pub fn get_slots((): ()) -> Result<()> {
+    todo!()
+}
+
+/// Returns a dictionary of all current tasks, filtered by the parameters.
+///
+/// Each filter parameter is combined as "and". Parameters that are [`None`] will be ignored.
+///
+/// # Syntax
+/// ```py
+/// def get_tasks(p: {
+///   'ids': list[TaskId] | None,
+///   'title_pat': str | None,
+///   'desc_pat': str | None,
+///   'deadline_before': datetime | None,
+///   'deadline_after': datetime | None,
+/// }) -> list[dict[
+///   TaskId, {
+///     'title': str,
+///     'desc': str | None,
+///     'deadline': datetime | None,
+///     'awaiting': list[TaskId] | None,
+///   }
+/// ]];
+/// ```
+pub fn get_tasks((): ()) -> Result<()> {
+    todo!()
+}
+
+/// Returns a dictionary of all current users, filtered by the parameters.
+///
+/// Each filter parameter is combined as "and". Parameters that are `None` will be ignored.
+///
+/// # Syntax
+/// ```py
+/// def get_users(p: {
+///   'ids': list[UserId] | None,
+///   'name_pat': str | None,
+/// }) -> list[{'name': str}];
+/// ```
+pub fn get_users((): ()) -> Result<()> {
+    todo!()
+}
+
+pub fn pop_rules((): ()) -> Result<()> {
+    todo!()
+}
+
+/// Removes one or more slots.
+///
+/// Argument must be an array, even if only removing one.
+///
+/// # Syntax
+///
+/// TBD
+pub fn pop_slots((): ()) -> Result<()> {
+    todo!()
+}
+
+/// Removes tasks by ID, returning a list of any IDs that failed to be removed (ex: task with that ID did not exist).
+/// If all requested removals were successful, the list will be empty.
+///
+/// Argument must be an array, even if only removing one.
+///
+/// # Syntax
+/// ```py
+/// def pop_tasks(p: {'to_pop': list[TaskId]}) -> list[TaskId];
+/// ```
+pub fn pop_tasks((): ()) -> Result<()> {
+    todo!()
+}
+
+/// Removes users by ID, returning a list of any IDs that failed to be removed (ex: user with that ID did not exist).
+/// If all requested removals were successful, the list will be empty.
+///
+/// Argument must be an array, even if only adding one.
+///
+/// # Syntax
+/// ```py
+/// def pop_users(p: {'to_pop': list[UserId]}) -> list[UserId];
+/// ```
+pub fn pop_users((): ()) -> Result<()> {
+    todo!()
+}
+
+/// Close the server after completing all ongoing tasks.
+///
+/// # Syntax
+/// ```py
+/// def quit(p: {}) -> None;
+/// ```
+///
+/// # Examples
+/// ```py
+/// # request server close
+/// proxy.quit({})
+/// ```
+pub fn quit((): ()) -> Result<()> {
+    EXIT_REQUESTED.store(true, std::sync::atomic::Ordering::Relaxed);
+    Ok(())
+}
+
 pub(crate) fn register(server: &mut Server) {
-    server.register_simple("quit", quit);
+    server.register_simple("add_rules", add_rules);
     server.register_simple("add_slots", add_slots);
     server.register_simple("add_tasks", add_tasks);
     server.register_simple("add_users", add_users);
+    server.register_simple("get_rules", get_rules);
+    server.register_simple("get_slots", get_slots);
+    server.register_simple("get_tasks", get_tasks);
+    server.register_simple("get_users", get_users);
+    server.register_simple("pop_rules", pop_rules);
+    server.register_simple("pop_slots", pop_slots);
+    server.register_simple("pop_tasks", pop_tasks);
+    server.register_simple("pop_users", pop_users);
+    server.register_simple("quit", quit);
 }
