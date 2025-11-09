@@ -217,8 +217,8 @@ pub struct Slot {
     /// even if all tasks are completed.
     pub min_staff: Option<NonZeroUsize>,
 
-    /// Name for the slot, if it has one.
-    pub name: Option<String>,
+    /// Name for the slot. Empty if unnamed.
+    pub name: String,
 }
 
 impl std::ops::Deref for Slot {
