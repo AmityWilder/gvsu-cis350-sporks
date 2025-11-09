@@ -51,6 +51,7 @@ pub struct Rule {
     /// How often `include` repeats. [`None`] if one-off.
     pub rep: Option<Repetition>,
 
+    /// How strongly to enforce this rule.
     pub pref: Preference,
 }
 
@@ -98,7 +99,7 @@ impl std::str::FromStr for Rule {
 }
 
 impl Rule {
-    pub fn new<I: Into<SmallVec<[TimeInterval; 1]>>>(include: I, pref: Preference) -> Self {
+    pub(crate) fn new<I: Into<SmallVec<[TimeInterval; 1]>>>(include: I, pref: Preference) -> Self {
         Self {
             include: include.into(),
             rep: None,
