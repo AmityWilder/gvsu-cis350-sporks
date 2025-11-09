@@ -172,9 +172,9 @@ fn main() -> Result<()> {
 
     NEXT_TASK_ID.store(tasks.keys().map(|k| k.0 + 1).max().unwrap_or(0), Relaxed);
     NEXT_USER_ID.store(users.keys().map(|k| k.0 + 1).max().unwrap_or(0), Relaxed);
-    *SLOTS.lock() = slots;
-    **TASKS.lock() = tasks;
-    **USERS.lock() = users;
+    *SLOTS.write() = slots;
+    **TASKS.write() = tasks;
+    **USERS.write() = users;
 
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
     let mut server = Server::new();
