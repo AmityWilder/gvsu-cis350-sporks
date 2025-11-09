@@ -83,7 +83,7 @@ macro_rules! slots {
             $crate::data::slot::Slot {
                 interval: $crate::time_interval!($mo0/$d0/$yr0$( @ $hr0:$m0)? - $mo1/$d1/$yr1$( @ $hr1:$m1)?),
                 min_staff: None$(.or(std::num::NonZeroUsize::new($min_staff)))?,
-                name: None$(.or(Some($name.to_string())))?
+                name: None$(.or(Some($name.to_string())))?.unwrap_or(String::new())
             }
         ),*]
     };

@@ -2,8 +2,8 @@
 
 use crate::data::*;
 use chrono::{DateTime, Utc};
-use parking_lot::Mutex;
-use regex;
+use parking_lot::RwLock;
+use regex::Regex;
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -19,11 +19,114 @@ use xml_rpc::{Fault, Server};
 type Result<T> = std::result::Result<T, Fault>;
 
 pub(crate) static EXIT_REQUESTED: AtomicBool = const { AtomicBool::new(false) };
-pub(crate) static SLOTS: Mutex<Vec<Slot>> = Mutex::new(Vec::new());
-pub(crate) static TASKS: Mutex<LazyLock<TaskMap>> = Mutex::new(LazyLock::new(TaskMap::default));
-pub(crate) static USERS: Mutex<LazyLock<UserMap>> = Mutex::new(LazyLock::new(UserMap::default));
+pub(crate) static SLOTS: RwLock<Vec<Slot>> = RwLock::new(Vec::new());
+pub(crate) static TASKS: RwLock<LazyLock<TaskMap>> = RwLock::new(LazyLock::new(TaskMap::default));
+pub(crate) static USERS: RwLock<LazyLock<UserMap>> = RwLock::new(LazyLock::new(UserMap::default));
 pub(crate) static NEXT_USER_ID: AtomicU64 = AtomicU64::new(0);
 pub(crate) static NEXT_TASK_ID: AtomicU64 = AtomicU64::new(0);
+
+mod re_serde {
+    use regex::Regex;
+
+    struct RegexVisitor;
+
+    impl<'de> serde::de::Visitor<'de> for RegexVisitor {
+        type Value = Regex;
+
+        #[inline]
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("Regex pattern")
+        }
+
+        #[inline]
+        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Regex::new(v).map_err(E::custom)
+        }
+    }
+
+    #[inline]
+    pub(crate) fn deserialize<'de, D>(deserializer: D) -> std::result::Result<Regex, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(RegexVisitor)
+    }
+
+    #[inline]
+    pub(crate) fn serialize<S>(re: &Regex, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(re.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Pattern {
+    StartsWith(String),
+    EndsWith(String),
+    Contains(String),
+    Exactly(String),
+    Regex(#[serde(with = "re_serde")] Regex),
+}
+
+impl Pattern {
+    /// Construct a [`Pattern`] that matches any string starting with literal `s`.
+    #[inline]
+    pub const fn starts_with(s: String) -> Result<Self> {
+        Ok(Self::StartsWith(s))
+    }
+
+    /// Construct a [`Pattern`] that matches any string ending with literal `s`.
+    #[inline]
+    pub const fn ends_with(s: String) -> Result<Self> {
+        Ok(Self::EndsWith(s))
+    }
+
+    /// Construct a [`Pattern`] that matches any string containging literal `s`.
+    #[inline]
+    pub const fn contains(s: String) -> Result<Self> {
+        Ok(Self::Contains(s))
+    }
+
+    /// Construct a [`Pattern`] that matches any string exactly equal to literal `s`.
+    #[inline]
+    pub const fn exactly(s: String) -> Result<Self> {
+        Ok(Self::Exactly(s))
+    }
+
+    /// Construct a [`Pattern`] that uses [`regex`] to match strings.
+    ///
+    /// # Errors
+    ///
+    /// Produces a [422 Unprocessable Content](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/422) error if the argument is not valid [`regex`].
+    #[inline]
+    pub fn regex(s: String) -> Result<Self> {
+        Regex::new(&s)
+            .map(Pattern::Regex)
+            .map_err(|e| Fault::new(422, format!("invalid regex: {e}")))
+    }
+
+    pub fn is_match(&self, haystack: &str) -> bool {
+        match self {
+            Pattern::StartsWith(s) => haystack.starts_with(s),
+            Pattern::EndsWith(s) => haystack.ends_with(s),
+            Pattern::Contains(s) => haystack.contains(s),
+            Pattern::Exactly(s) => haystack == s,
+            Pattern::Regex(re) => re.is_match(haystack),
+        }
+    }
+}
+
+fn optional_regex(field: &str, pat: &Option<String>) -> Result<Option<Regex>> {
+    pat.as_deref()
+        .map(Regex::new)
+        .transpose()
+        .map_err(|e| Fault::new(422, format!("invalid regex in `{field}`: {e}")))
+}
 
 /// Once every `n` units. Fields are added together.
 /// [`None`] and `0` are equivalent.
@@ -209,7 +312,7 @@ impl From<PySlot> for Slot {
         Self {
             interval: TimeInterval { start, end },
             min_staff: min_staff.and_then(NonZeroUsize::new),
-            name,
+            name: name.unwrap_or_default(),
         }
     }
 }
@@ -226,7 +329,7 @@ impl From<Slot> for PySlot {
             start,
             end,
             min_staff: min_staff.map(NonZeroUsize::get),
-            name,
+            name: (!name.is_empty()).then_some(name),
         }
     }
 }
@@ -363,7 +466,7 @@ impl From<&User> for (UserId, PyUser) {
 /// ]) -> set[UserId];
 /// ```
 pub fn add_rules(to_add: UserMap<Vec<PyRule>>) -> Result<UserSet> {
-    let mut users = USERS.lock();
+    let mut users = USERS.write();
     Ok(to_add
         .into_iter()
         .filter_map(|(user, rules)| match users.get_mut(&user) {
@@ -400,7 +503,7 @@ pub fn add_rules(to_add: UserMap<Vec<PyRule>>) -> Result<UserSet> {
 /// }])
 /// ```
 pub fn add_slots(to_add: Vec<PySlot>) -> Result<()> {
-    SLOTS.lock().extend(to_add.into_iter().map(Slot::from));
+    SLOTS.write().extend(to_add.into_iter().map(Slot::from));
     Ok(())
 }
 
@@ -446,7 +549,7 @@ pub fn add_tasks(to_add: Vec<PyTask>) -> Result<Vec<TaskId>> {
     let additional = to_add.len().try_into().unwrap();
     let start = NEXT_TASK_ID.fetch_add(additional, Relaxed);
     let ids = (start..start + additional).map(TaskId);
-    TASKS.lock().extend(
+    TASKS.write().extend(
         ids.clone()
             .zip(to_add)
             .map(Task::from)
@@ -476,7 +579,7 @@ pub fn add_users(to_add: Vec<PyUser>) -> Result<Vec<UserId>> {
     let additional = to_add.len().try_into().unwrap();
     let start = NEXT_USER_ID.fetch_add(additional, Relaxed);
     let ids = (start..start + additional).map(UserId);
-    USERS.lock().extend(
+    USERS.write().extend(
         ids.clone()
             .zip(to_add)
             .map(User::from)
@@ -496,13 +599,13 @@ pub fn add_users(to_add: Vec<PyUser>) -> Result<Vec<UserId>> {
 ///     'include': list[range[datetime]],
 ///     'repeat': {
 ///       'every': {
-///         seconds: int | None,     # will always be >=1 if not None
-///         minutes: int | None,     # will always be >=1 if not None
-///         hours:   int | None,     # will always be >=1 if not None
-///         days:    int | None,     # will always be >=1 if not None
-///         weeks:   int | None,     # will always be >=1 if not None
-///         months:  int | None,     # will always be >=1 if not None
-///         years:   int | None,     # will always be >=1 if not None
+///         seconds: int | None,  # will always be >=1 if not None
+///         minutes: int | None,  # will always be >=1 if not None
+///         hours:   int | None,  # will always be >=1 if not None
+///         days:    int | None,  # will always be >=1 if not None
+///         weeks:   int | None,  # will always be >=1 if not None
+///         months:  int | None,  # will always be >=1 if not None
+///         years:   int | None,  # will always be >=1 if not None
 ///       },
 ///       'start': datetime,
 ///       'until': datetime | None,  # will always be >=`start` if not None
@@ -512,8 +615,8 @@ pub fn add_users(to_add: Vec<PyUser>) -> Result<Vec<UserId>> {
 /// )];
 /// ```
 pub fn get_rules(user: UserId) -> Result<Vec<PyRule>> {
-    match USERS.lock().get(&user) {
-        Some(u) => Ok(u.availability.iter().map(From::from).collect()),
+    match USERS.read().get(&user) {
+        Some(u) => Ok(u.availability.iter().map(From::from).collect()), // TODO: implement filtering
         None => Err(Fault::new(
             404,
             format!("no user with the ID '{user}' exists"),
@@ -521,27 +624,75 @@ pub fn get_rules(user: UserId) -> Result<Vec<PyRule>> {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlotFilter {
+    starting_before: Option<DateTime<Utc>>,
+    starting_after: Option<DateTime<Utc>>,
+    ending_before: Option<DateTime<Utc>>,
+    ending_after: Option<DateTime<Utc>>,
+    min_staff_min: Option<usize>,
+    min_staff_max: Option<usize>,
+    name_pat: Option<Pattern>,
+}
+
 /// Returns an array of all current slots.
+///
+/// Patterns should use `^$` (match start followed immediately by end) to match against empty names,
+/// as an empty pattern will always match (the empty set is a subset of every set).
 ///
 /// # Syntax
 /// ```py
 /// def get_slots(filter: {
-///   'starting_before': datetime | None,
-///   'starting_after':  datetime | None,
-///   'ending_before':   datetime | None,
-///   'ending_after':    datetime | None,
-///   'min_staff_min': int | None,  # must be positive
-///   'min_staff_max': int | None,  # must be positive and >=`min_staff_min`
-///   'name_pat': str | None,       # regex
+///   'starting_before': datetime | None,  # inclusive
+///   'starting_after':  datetime | None,  # inclusive
+///   'ending_before':   datetime | None,  # inclusive
+///   'ending_after':    datetime | None,  # inclusive
+///   'min_staff_min': int | None,         # must be positive
+///   'min_staff_max': int | None,         # must be positive and >=`min_staff_min`
+///   'name_pat': Pattern | None,
 /// }) -> list[{
 ///   'start': datetime,
-///   'end':   datetime,            # will always be >=`start`
-///   'min_staff': int | None,      # will always be >=1 if not None
+///   'end':   datetime,        # will always be >=`start`
+///   'min_staff': int | None,  # will always be >=1 if not None
 ///   'name': str | None,
 /// }];
 /// ```
-pub fn get_slots(filter: ()) -> Result<Vec<Slot>> {
-    Ok(SLOTS.lock().clone()) // TODO: implement filter
+pub fn get_slots(filter: SlotFilter) -> Result<Vec<PySlot>> {
+    let SlotFilter {
+        starting_before,
+        starting_after,
+        ending_before,
+        ending_after,
+        min_staff_min,
+        min_staff_max,
+        name_pat,
+    } = filter;
+    let name_pat = name_pat.as_ref();
+    Ok(SLOTS
+        .read()
+        .iter()
+        .filter(|slot| {
+            starting_before.is_none_or(|x| slot.start <= x)
+                && starting_after.is_none_or(|x| slot.start >= x)
+                && ending_before.is_none_or(|x| slot.end <= x)
+                && ending_after.is_none_or(|x| slot.end >= x)
+                && min_staff_min.is_none_or(|x| slot.min_staff.map_or(0, NonZeroUsize::get) >= x)
+                && min_staff_max.is_none_or(|x| slot.min_staff.map_or(0, NonZeroUsize::get) <= x)
+                // use "^$" to match against empty names
+                && name_pat.is_none_or(|x| x.is_match(&slot.name))
+        })
+        .cloned()
+        .map(From::from)
+        .collect())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskFilter {
+    ids: Option<TaskSet>,
+    title_pat: Option<Pattern>,
+    desc_pat: Option<Pattern>,
+    deadline_before: Option<DateTime<Utc>>,
+    deadline_after: Option<DateTime<Utc>>,
 }
 
 /// Returns a dictionary of all current tasks, filtered by the parameters.
@@ -552,11 +703,11 @@ pub fn get_slots(filter: ()) -> Result<Vec<Slot>> {
 /// # Syntax
 /// ```py
 /// def get_tasks(filter: {
-///   'ids': list[TaskId] | None,
-///   'title_pat': str | None,  # regex
-///   'desc_pat':  str | None,  # regex
-///   'deadline_before': datetime | None,
-///   'deadline_after':  datetime | None,
+///   'ids': set[TaskId] | None,
+///   'title_pat': Pattern | None,
+///   'desc_pat':  Pattern | None,
+///   'deadline_before': datetime | None,  # inclusive
+///   'deadline_after':  datetime | None,  # inclusive
 /// }) -> dict[
 ///   TaskId, {
 ///     'title': str,
@@ -566,8 +717,40 @@ pub fn get_slots(filter: ()) -> Result<Vec<Slot>> {
 ///   }
 /// ];
 /// ```
-pub fn get_tasks(filter: ()) -> Result<TaskMap<PyTask>> {
-    Ok(TASKS.lock().values().map(From::from).collect()) // TODO: implement filter
+///
+/// **See also:** [`Pattern`]
+pub fn get_tasks(filter: TaskFilter) -> Result<TaskMap<PyTask>> {
+    let TaskFilter {
+        ids,
+        title_pat,
+        desc_pat,
+        deadline_before,
+        deadline_after,
+    } = filter;
+    let ids = ids.as_ref();
+    let title_pat = title_pat.as_ref();
+    let desc_pat = desc_pat.as_ref();
+    Ok(TASKS
+        .read()
+        .values()
+        .filter(|task| {
+            // lack of deadline is equivalent to infinite deadline. there exists no inf<=datetime.
+            deadline_before.is_none_or(|x| task.deadline.is_some_and(|d| d <= x))
+                // lack of deadline is equivalent to infinite deadline. every no datetime<=inf.
+                && deadline_after.is_none_or(|x| task.deadline.is_none_or(|d| d >= x))
+                // note that None => "do not filter", which is distinct from {} => "never"
+                && ids.is_none_or(|x| x.contains(&task.id))
+                && title_pat.is_none_or(|x| x.is_match(&task.title))
+                && desc_pat.is_none_or(|x| x.is_match(&task.desc))
+        })
+        .map(From::from)
+        .collect())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserFilter {
+    ids: Option<Vec<UserId>>,
+    name_pat: Option<Pattern>,
 }
 
 /// Returns a dictionary of all current users, filtered by the parameters.
@@ -579,11 +762,24 @@ pub fn get_tasks(filter: ()) -> Result<TaskMap<PyTask>> {
 /// ```py
 /// def get_users(filter: {
 ///   'ids': list[UserId] | None,
-///   'name_pat': str | None,  # regex
+///   'name_pat': Pattern | None,
 /// }) -> dict[UserId, {'name': str}];
 /// ```
-pub fn get_users(filter: ()) -> Result<UserMap<PyUser>> {
-    Ok(USERS.lock().values().map(From::from).collect()) // TODO: implement filter
+///
+/// **See also:** [`Pattern`]
+pub fn get_users(filter: UserFilter) -> Result<UserMap<PyUser>> {
+    let UserFilter { ids, name_pat } = filter;
+    let ids = ids.as_ref();
+    let name_pat = name_pat.as_ref();
+    Ok(USERS
+        .read()
+        .values()
+        .filter(|user| {
+            ids.is_none_or(|x| x.contains(&user.id))
+                && name_pat.is_none_or(|x| x.is_match(&user.name))
+        })
+        .map(From::from)
+        .collect()) // TODO: implement filter
 }
 
 /// Removes one or more rules from one or more users, returning a list of any user IDs that do not exist and therefore could not have any rules popped.
@@ -596,7 +792,7 @@ pub fn get_users(filter: ()) -> Result<UserMap<PyUser>> {
 /// def pop_rules(to_pop: dict[UserId, list[ TBD ]]) -> set[UserId];
 /// ```
 pub fn pop_rules(to_pop: UserMap<Vec<()>>) -> Result<UserSet> {
-    let mut users = USERS.lock();
+    let mut users = USERS.write();
     Ok(to_pop
         .into_iter()
         .filter_map(|(user, rules)| match users.get_mut(&user) {
@@ -630,7 +826,7 @@ pub fn pop_slots(to_pop: ()) -> Result<()> {
 /// def pop_tasks(to_pop: set[TaskId]) -> set[TaskId];
 /// ```
 pub fn pop_tasks(mut to_pop: TaskSet) -> Result<TaskSet> {
-    TASKS.lock().retain(|id, _| !to_pop.remove(id));
+    TASKS.write().retain(|id, _| !to_pop.remove(id));
     Ok(to_pop)
 }
 
@@ -644,7 +840,7 @@ pub fn pop_tasks(mut to_pop: TaskSet) -> Result<TaskSet> {
 /// def pop_users(to_pop: set[UserId]) -> set[UserId];
 /// ```
 pub fn pop_users(mut to_pop: UserSet) -> Result<UserSet> {
-    USERS.lock().retain(|id, _| !to_pop.remove(id));
+    USERS.write().retain(|id, _| !to_pop.remove(id));
     Ok(to_pop)
 }
 
@@ -666,6 +862,11 @@ pub fn quit((): ()) -> Result<()> {
 }
 
 pub(crate) fn register(server: &mut Server) {
+    server.register_simple("pat_starts_with", Pattern::starts_with);
+    server.register_simple("pat_ends_with", Pattern::ends_with);
+    server.register_simple("pat_contains", Pattern::contains);
+    server.register_simple("pat_exactly", Pattern::exactly);
+    server.register_simple("pat_regex", Pattern::regex);
     server.register_simple("add_rules", add_rules);
     server.register_simple("add_slots", add_slots);
     server.register_simple("add_tasks", add_tasks);

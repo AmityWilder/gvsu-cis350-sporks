@@ -272,7 +272,7 @@ mod scheduler_tests {
                 .0
                 .iter()
                 .map(|(slot, staff)| (
-                    slot.name.as_deref().unwrap(),
+                    slot.name.as_str(),
                     staff
                         .iter()
                         .map(|id| users[id].name.as_str())
