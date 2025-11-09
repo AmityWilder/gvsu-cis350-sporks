@@ -169,33 +169,15 @@ impl Ord for TimeInterval {
 impl TimeInterval {
     /// Returns whether `self` and `other` occupy some shared range of time.
     /// i.e. their intersection is non-null.
-    pub fn is_overlapping(&self, other: &Self) -> bool {
+    pub(crate) fn _is_overlapping(&self, other: &Self) -> bool {
         debug_assert!(self.start <= self.end && other.start <= other.end);
         !(self.end < other.start || other.end < self.start)
     }
 
     /// Returns whether `self` completely encloses `other`.
-    pub fn contains(&self, other: &Self) -> bool {
+    pub(crate) fn contains(&self, other: &Self) -> bool {
         debug_assert!(self.start <= self.end && other.start <= other.end);
         self.start <= other.start && other.end <= self.end
-    }
-
-    /// The overlapping subset of two [`TimeInterval`]s.
-    /// Returns [`None`] if there is no overlap.
-    pub fn intersection(&self, _other: &Self) -> Option<Self> {
-        todo!()
-    }
-
-    /// The superset of two overlapping/adjacent [`TimeInterval`]s.
-    /// Returns [`None`] if they do not overlap, meaning there would be no change.
-    pub fn union(&self, _other: &Self) -> Option<Self> {
-        todo!()
-    }
-
-    /// A [`TimeInterval`] with `other` excluded.
-    /// Returns [`None`] if `other` completely absorbs `self`.
-    pub fn difference(&self, _other: &Self) -> Option<Self> {
-        todo!()
     }
 }
 
@@ -234,5 +216,84 @@ impl std::ops::DerefMut for Slot {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.interval
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::time_interval;
+
+    #[test]
+    fn test_interval_contains_self() {
+        assert!(
+            time_interval! { 4/5/2025 - 4/8/2025 }
+                .contains(&time_interval! { 4/5/2025 - 4/8/2025 }),
+            "an interval should contain itself"
+        );
+    }
+
+    #[test]
+    fn test_interval_contains_later_start() {
+        assert!(
+            time_interval! { 4/5/2025 - 4/8/2025 }
+                .contains(&time_interval! { 4/6/2025 - 4/8/2025 }),
+            "an interval starting later but sharing an end should count as contained"
+        );
+    }
+
+    #[test]
+    fn test_interval_contains_earlier_end() {
+        assert!(
+            time_interval! { 4/5/2025 - 4/8/2025 }
+                .contains(&time_interval! { 4/5/2025 - 4/7/2025 }),
+            "an interval sharing a start but ending earlier should count as contained"
+        );
+    }
+
+    #[test]
+    fn test_interval_contains_later_start_and_earlier_end() {
+        assert!(
+            time_interval! { 4/5/2025 - 4/8/2025 }
+                .contains(&time_interval! { 4/6/2025 - 4/7/2025 }),
+            "an interval starting later and ending earlier should count as contained"
+        );
+    }
+
+    #[test]
+    fn test_interval_not_contains_earlier_start() {
+        assert!(
+            !time_interval! { 4/5/2025 - 4/8/2025 }
+                .contains(&time_interval! { 4/4/2025 - 4/6/2025 }),
+            "an interval starting earlier should not count as contained, even if ending earlier"
+        );
+        assert!(
+            !time_interval! { 4/5/2025 - 4/8/2025 }
+                .contains(&time_interval! { 4/4/2025 - 4/8/2025 }),
+            "an interval starting earlier should not count as contained, even if sharing an end"
+        );
+        assert!(
+            !time_interval! { 4/5/2025 - 4/8/2025 }
+                .contains(&time_interval! { 4/4/2025 - 4/7/2025 }),
+            "an interval starting earlier should not count as contained, even if sharing a duration"
+        );
+    }
+
+    #[test]
+    fn test_interval_not_contains_later_end() {
+        assert!(
+            !time_interval! { 4/5/2025 - 4/8/2025 }
+                .contains(&time_interval! { 4/4/2025 - 4/6/2025 }),
+            "an interval starting earlier should not count as contained, even if ending earlier"
+        );
+        assert!(
+            !time_interval! { 4/5/2025 - 4/8/2025 }
+                .contains(&time_interval! { 4/4/2025 - 4/8/2025 }),
+            "an interval starting earlier should not count as contained, even if sharing an end"
+        );
+        assert!(
+            !time_interval! { 4/5/2025 - 4/8/2025 }
+                .contains(&time_interval! { 4/4/2025 - 4/7/2025 }),
+            "an interval starting earlier should not count as contained, even if sharing a duration"
+        );
     }
 }
