@@ -139,10 +139,11 @@ macro_rules! users {
                 id: $crate::data::user::UserId($id),
                 name: $name.to_string(),
                 availability: vec![$(
-                    Rule::new(
-                        [$crate::time_interval!($mo0/$d0/$yr0$( @ $hr0:$m0)? - $mo1/$d1/$yr1$( @ $hr1:$m1)?)],
-                        $crate::data::pref::Preference($pref),
-                    ),
+                    Rule {
+                        include: FromIterator::from_iter([$crate::time_interval!($mo0/$d0/$yr0$( @ $hr0:$m0)? - $mo1/$d1/$yr1$( @ $hr1:$m1)?)]),
+                        rep: None,
+                        pref: $crate::data::pref::Preference($pref),
+                    },
                 ),*],
                 user_prefs: Default::default(/* TODO */),
                 skills: Default::default(/* TODO */),
