@@ -867,17 +867,21 @@ pub(crate) fn register(server: &mut Server) {
     server.register_simple("pat_contains", Pattern::contains);
     server.register_simple("pat_exactly", Pattern::exactly);
     server.register_simple("pat_regex", Pattern::regex);
+
     server.register_simple("add_rules", add_rules);
     server.register_simple("add_slots", add_slots);
     server.register_simple("add_tasks", add_tasks);
     server.register_simple("add_users", add_users);
+
     server.register_simple("get_rules", get_rules);
     server.register_simple("get_slots", get_slots);
     server.register_simple("get_tasks", get_tasks);
     server.register_simple("get_users", get_users);
+
     server.register_simple("pop_rules", pop_rules);
     server.register_simple("pop_slots", pop_slots);
     server.register_simple("pop_tasks", pop_tasks);
     server.register_simple("pop_users", pop_users);
+
     server.register_simple("quit", quit);
 }
