@@ -61,10 +61,10 @@ macro_rules! time_interval {
         $mo0:literal/$d0:literal/$yr0:literal -
         $mo1:literal/$d1:literal/$yr1:literal
     ) => {
-        $crate::data::slot::TimeInterval(
-            $crate::datetime!($mo0/$d0/$yr0)..
-            $crate::datetime!($mo1/$d1/$yr1)
-        )
+        $crate::data::slot::TimeInterval {
+            start: $crate::datetime!($mo0/$d0/$yr0),
+            end: $crate::datetime!($mo1/$d1/$yr1)
+        }
     };
 }
 
@@ -140,7 +140,7 @@ macro_rules! users {
                 name: $name.to_string(),
                 availability: vec![$(
                     Rule {
-                        include: FromIterator::from_iter([$crate::time_interval!($mo0/$d0/$yr0$( @ $hr0:$m0)? - $mo1/$d1/$yr1$( @ $hr1:$m1)?)]),
+                        include: smallvec::smallvec![$crate::time_interval!($mo0/$d0/$yr0$( @ $hr0:$m0)? - $mo1/$d1/$yr1$( @ $hr1:$m1)?)],
                         rep: None,
                         pref: $crate::data::pref::Preference($pref),
                     },

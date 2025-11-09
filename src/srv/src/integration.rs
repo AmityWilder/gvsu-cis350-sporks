@@ -812,7 +812,7 @@ pub fn pop_rules(to_pop: UserMap<Vec<()>>) -> Result<UserSet> {
 /// # Syntax
 ///
 /// TBD
-pub fn pop_slots(to_pop: ()) -> Result<()> {
+pub fn pop_slots(_to_pop: ()) -> Result<()> {
     todo!()
 }
 
