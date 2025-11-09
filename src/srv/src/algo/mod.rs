@@ -26,7 +26,7 @@ use miette::Result;
 use petgraph::visit::Topo;
 use rustc_hash::{FxBuildHasher, FxHashMap};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, num::NonZeroUsize};
+use std::collections::BTreeMap;
 use thiserror::Error;
 
 /// Error generated while attempting to create a schedule.
@@ -115,18 +115,18 @@ impl Schedule {
                         let mut it = u
                             .availability
                             .iter()
-                            .filter(|(t, p)| *p > Preference::NEG_INFINITY && t.contains(interval))
+                            .filter(|r| r.pref > Preference::NEG_INFINITY && r.contains(interval))
                             .peekable();
 
                         it.peek()
                             .is_some()
-                            .then(|| (u.id, it.map(|(t, p)| (*p, t)).collect()))
+                            .then(|| (u.id, it.map(|r| (r.pref, r)).collect()))
                     })
                     .collect();
 
                 (slot, candidates)
             })
-            .collect::<Vec<(&Slot, UserMap<BTreeMap<Preference, &TimeInterval>>)>>();
+            .collect::<Vec<(&Slot, UserMap<BTreeMap<Preference, &Rule>>)>>();
 
         slots
             .iter()
@@ -137,15 +137,15 @@ impl Schedule {
                         let mut it = u
                             .availability
                             .iter()
-                            .map(|(t, p)| (*p, t))
-                            .filter(|(p, t)| {
-                                *p > Preference::NEG_INFINITY && t.contains(&slot.interval)
+                            .filter(|r| {
+                                r.pref > Preference::NEG_INFINITY && r.contains(&slot.interval)
                             })
+                            .map(|r| (r.pref, r))
                             .peekable();
 
                         it.peek().is_some().then(|| (u, it.collect()))
                     })
-                    .collect::<Vec<(&User, BTreeMap<Preference, &TimeInterval>)>>();
+                    .collect::<Vec<(&User, BTreeMap<Preference, &Rule>)>>();
 
                 let staff = 'staff: {
                     let mut staff = if let Some(min_staff) = slot.min_staff {

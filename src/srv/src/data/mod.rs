@@ -1,10 +1,14 @@
 //! Data that is used for generating schedules
 
+pub mod pref;
+pub mod rule;
 pub mod skill;
 pub mod slot;
 pub mod task;
 pub mod user;
 
+pub use pref::*;
+pub use rule::*;
 pub use skill::*;
 pub use slot::*;
 pub use task::*;
@@ -47,10 +51,10 @@ macro_rules! time_interval {
         $mo0:literal/$d0:literal/$yr0:literal @ $hr0:literal:$m0:literal -
         $mo1:literal/$d1:literal/$yr1:literal @ $hr1:literal:$m1:literal
     ) => {
-        $crate::data::slot::TimeInterval(
-            $crate::datetime!($mo0/$d0/$yr0 @ $hr0:$m0)..
-            $crate::datetime!($mo1/$d1/$yr1 @ $hr1:$m1)
-        )
+        $crate::data::slot::TimeInterval {
+            start: $crate::datetime!($mo0/$d0/$yr0 @ $hr0:$m0),
+            end: $crate::datetime!($mo1/$d1/$yr1 @ $hr1:$m1)
+        }
     };
 
     (
@@ -135,10 +139,10 @@ macro_rules! users {
                 id: $crate::data::user::UserId($id),
                 name: $name.to_string(),
                 availability: vec![$(
-                    (
-                        $crate::time_interval!($mo0/$d0/$yr0$( @ $hr0:$m0)? - $mo1/$d1/$yr1$( @ $hr1:$m1)?),
-                        $crate::data::user::Preference($pref),
-                    )
+                    Rule::new(
+                        [$crate::time_interval!($mo0/$d0/$yr0$( @ $hr0:$m0)? - $mo1/$d1/$yr1$( @ $hr1:$m1)?)],
+                        $crate::data::pref::Preference($pref),
+                    ),
                 ),*],
                 user_prefs: Default::default(/* TODO */),
                 skills: Default::default(/* TODO */),

@@ -3,7 +3,7 @@
 use chrono::prelude::*;
 use miette::Result;
 use serde::{Deserialize, Serialize, de::Visitor};
-use std::{num::NonZeroUsize, ops::Range};
+use std::num::NonZeroUsize;
 
 /// A timerange, mainly intended for timeslots.
 ///
@@ -18,8 +18,14 @@ use std::{num::NonZeroUsize, ops::Range};
 /// The main purpose of implementing [`Ord`] for [`TimeInterval`] is so that
 /// it can be used as a key in a [`BTreeMap`](`std::collections::BTreeMap`)
 /// or [`BTreeSet`](`std::collections::BTreeSet`).
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
-pub struct TimeInterval(pub Range<DateTime<Utc>>);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+pub struct TimeInterval {
+    /// Beginning of the interval
+    pub start: DateTime<Utc>,
+
+    /// Conclusion of the interval
+    pub end: DateTime<Utc>,
+}
 
 /// Custom [`Deserialize`] implementation needed for reading [`TimeInterval`] as map keys.
 ///
@@ -68,7 +74,7 @@ impl<'de> Deserialize<'de> for TimeInterval {
                 let end = seq
                     .next_element::<DateTime<Utc>>()?
                     .ok_or_else(|| Error::invalid_length(1, &self))?;
-                Ok(TimeInterval(start..end))
+                Ok(TimeInterval { start, end })
             }
 
             fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
@@ -102,7 +108,7 @@ impl<'de> Deserialize<'de> for TimeInterval {
                 }
                 let start = start.ok_or_else(|| Error::missing_field("start"))?;
                 let end = end.ok_or_else(|| Error::missing_field("end"))?;
-                Ok(TimeInterval(start..end))
+                Ok(TimeInterval { start, end })
             }
 
             fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
@@ -114,7 +120,7 @@ impl<'de> Deserialize<'de> for TimeInterval {
                     .ok_or_else(|| Error::invalid_length(1, &self))?;
                 let start = start.parse::<DateTime<Utc>>().map_err(Error::custom)?;
                 let end = end.parse::<DateTime<Utc>>().map_err(Error::custom)?;
-                Ok(TimeInterval(start..end))
+                Ok(TimeInterval { start, end })
             }
         }
 
@@ -133,19 +139,13 @@ impl<'de> Deserialize<'de> for TimeInterval {
     }
 }
 
-impl std::ops::Deref for TimeInterval {
-    type Target = Range<DateTime<Utc>>;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.0
+impl std::ops::RangeBounds<DateTime<Utc>> for TimeInterval {
+    fn start_bound(&self) -> std::ops::Bound<&DateTime<Utc>> {
+        std::ops::Bound::Included(&self.start)
     }
-}
 
-impl std::ops::DerefMut for TimeInterval {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+    fn end_bound(&self) -> std::ops::Bound<&DateTime<Utc>> {
+        std::ops::Bound::Excluded(&self.end)
     }
 }
 
@@ -159,8 +159,8 @@ impl PartialOrd for TimeInterval {
 impl Ord for TimeInterval {
     #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match self.0.start.cmp(&other.0.start) {
-            std::cmp::Ordering::Equal => self.0.end.cmp(&other.0.end),
+        match self.start.cmp(&other.start) {
+            std::cmp::Ordering::Equal => self.end.cmp(&other.end),
             ord => ord,
         }
     }
