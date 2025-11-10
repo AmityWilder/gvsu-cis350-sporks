@@ -5,7 +5,7 @@ def updateScrollRegion(canvas,frame):
 	canvas.update_idletasks()
 	canvas.config(scrollregion=frame.bbox())
 
-def form_table(canvas,frame,list):
+def form_table(canvas,frame,list,boxlist):
     
     list.append(['','','','',])
     total_rows = len(list)
@@ -26,8 +26,10 @@ def form_table(canvas,frame,list):
                 
         e.grid(row=total_rows-1, column=j)
         e.insert(tk.END, list[total_rows-1][j])
+        boxlist[total_rows-1].append(e)
 
         # make remove button
+    boxlist.append([])
     removebutton =tk.Button(frame, text="Remove")
     removebutton.grid(row=total_rows-1, column=total_columns, padx=5)
     
