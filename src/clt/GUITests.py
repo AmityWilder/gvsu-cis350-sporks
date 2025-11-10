@@ -52,7 +52,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     #removes focus
     #root.bind_all("<Button-1>", lambda event: event.widget.focus_set())
     root.title("Spork Scheduler")
-    root.geometry("640x480")
+    root.geometry("900x480")
     
 
 
@@ -81,18 +81,35 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     shift_table=ttk.Frame(tab1)
     shiftcanvas=tk.Canvas(shift_table)
     sfttable=ttk.Frame(shiftcanvas)
-    scrollbar=tk.Scrollbar(shift_table)
-    shiftcanvas.config(yscrollcommand=scrollbar.set)
-    scrollbar.config(orient=tk.VERTICAL, command=shiftcanvas.yview)
-
-    scrollbar.pack(fill=tk.Y,side=tk.RIGHT,expand=tk.FALSE)
+    shiftbar=tk.Scrollbar(shift_table)
+    shiftcanvas.config(yscrollcommand=shiftbar.set)
+    shiftbar.config(orient=tk.VERTICAL, command=shiftcanvas.yview)
+    shiftbar.pack(fill=tk.Y,side=tk.RIGHT,expand=tk.FALSE)
     shiftcanvas.pack(fill=tk.BOTH, side=tk.LEFT, expand=tk.TRUE)
-    
     shiftcanvas.create_window(0,0, window=sfttable,anchor=tk.NW)
+
     employee_center=ttk.Frame(tab2)
     employee_table=ttk.Frame(tab2)
+    empcanvas=tk.Canvas(employee_table)
+    emptable=ttk.Frame(empcanvas)
+    empbar=tk.Scrollbar(employee_table)
+    empcanvas.config(yscrollcommand=empbar.set)
+    empbar.config(orient=tk.VERTICAL, command=empcanvas.yview)
+    empbar.pack(fill=tk.Y,side=tk.RIGHT,expand=tk.FALSE)
+    empcanvas.pack(fill=tk.BOTH, side=tk.LEFT, expand=tk.TRUE)
+    empcanvas.create_window(0,0, window=emptable,anchor=tk.NW)
+
     task_center=ttk.Frame(tab3)
     task_table=ttk.Frame(tab3)
+    tskcanvas=tk.Canvas(task_table)
+    tsktable=ttk.Frame(tskcanvas)
+    tskbar=tk.Scrollbar(task_table)
+    tskcanvas.config(yscrollcommand=tskbar.set)
+    tskbar.config(orient=tk.VERTICAL, command=tskcanvas.yview)
+    tskbar.pack(fill=tk.Y,side=tk.RIGHT,expand=tk.FALSE)
+    tskcanvas.pack(fill=tk.BOTH, side=tk.LEFT, expand=tk.TRUE)
+    tskcanvas.create_window(0,0, window=tsktable,anchor=tk.NW)
+
     schedule_center=ttk.Frame(tab4)
     schedule_image=ttk.Frame(tab4)
 
@@ -118,7 +135,8 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     add_shift.pack(side=tk.LEFT)
 
     shift_center.pack()
-    shift_table.pack(pady=20, padx=25, fill='x')
+    shift_table.pack(pady=20, padx=75, fill='x')
+
 
     # employee tab
     emp_lst = [('ID','Name','Skills','Preferences'),
@@ -133,19 +151,19 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     selected_name = tk.StringVar()
     namemenue = ttk.Combobox(employee_center, width=30,values=employeelist,textvariable=selected_name)
     namemenue.pack(side=tk.LEFT, padx=5)
-    #add_employee=ttk.Button(employee_center,text='Add employee', command=lambda: form_table(employee_table,emp_lst))
-    #add_employee.pack(side=tk.LEFT)
+    add_employee=ttk.Button(employee_center,text='Add employee', command=lambda: form_table(empcanvas,emptable,emp_lst))
+    add_employee.pack(side=tk.LEFT)
 
     for j in range(emp_columns):
                 
-        e = tk.Entry(employee_table, width=20, fg='blue',
+        e = tk.Entry(emptable, width=20, fg='blue',
                                font=('Arial',12,'bold'))
                 
         e.grid(row=0, column=j)
         e.insert(tk.END, emp_lst[0][j])
 
-    employee_center.pack(expand=0,fill='x')
-    employee_table.pack(pady=10)
+    employee_center.pack()
+    employee_table.pack(pady=20, padx=25, fill='x')
 
 
     # task tab
@@ -157,16 +175,16 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
     for j in range(tsk_columns):
                 
-        e = tk.Entry(task_table, width=20, fg='blue',
+        e = tk.Entry(tsktable, width=20, fg='blue',
                                font=('Arial',12,'bold'))
                 
         e.grid(row=0, column=j)
         e.insert(tk.END, tsk_lst[0][j])
-    #add_task_button=ttk.Button(task_center,text='Add Task', command=lambda: form_table(task_table,tsk_lst))
-    #add_task_button.pack(side=tk.LEFT)
+    add_task_button=ttk.Button(task_center,text='Add Task', command=lambda: form_table(tskcanvas,tsktable,tsk_lst))
+    add_task_button.pack(side=tk.LEFT)
 
     task_center.pack()
-    task_table.pack(pady=20)
+    task_table.pack(pady=20, padx=25, fill='x')
     
     
     # schedule tab
