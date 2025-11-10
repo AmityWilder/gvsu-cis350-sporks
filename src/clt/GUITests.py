@@ -79,16 +79,16 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     # frames
     shift_center=ttk.Frame(tab1)
     shift_table=ttk.Frame(tab1)
-    canvas=tk.Canvas(shift_table)
-    table=ttk.Frame(canvas)
+    shiftcanvas=tk.Canvas(shift_table)
+    sfttable=ttk.Frame(shiftcanvas)
     scrollbar=tk.Scrollbar(shift_table)
-    canvas.config(yscrollcommand=scrollbar.set)
-    scrollbar.config(orient=tk.VERTICAL, command=canvas.yview)
+    shiftcanvas.config(yscrollcommand=scrollbar.set)
+    scrollbar.config(orient=tk.VERTICAL, command=shiftcanvas.yview)
 
     scrollbar.pack(fill=tk.Y,side=tk.RIGHT,expand=tk.FALSE)
-    canvas.pack(fill=tk.BOTH, side=tk.LEFT, expand=tk.TRUE)
+    shiftcanvas.pack(fill=tk.BOTH, side=tk.LEFT, expand=tk.TRUE)
     
-    canvas.create_window(0,0, window=table,anchor=tk.NW)
+    shiftcanvas.create_window(0,0, window=sfttable,anchor=tk.NW)
     employee_center=ttk.Frame(tab2)
     employee_table=ttk.Frame(tab2)
     task_center=ttk.Frame(tab3)
@@ -109,12 +109,12 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
     for j in range(sft_columns):
                 
-        e = tk.Entry(table, width=20, fg='blue',
+        e = tk.Entry(sfttable, width=20, fg='blue',
                                font=('Arial',12,'bold'))
                 
         e.grid(row=0, column=j)
         e.insert(tk.END, sft_lst[0][j])
-    add_shift=ttk.Button(shift_center,text='Add shift', command=lambda: form_table(canvas,table,sft_lst))
+    add_shift=ttk.Button(shift_center,text='Add shift', command=lambda: form_table(shiftcanvas,sfttable,sft_lst))
     add_shift.pack(side=tk.LEFT)
 
     shift_center.pack()
