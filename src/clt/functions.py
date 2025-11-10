@@ -7,7 +7,7 @@ def updateScrollRegion(canvas,frame):
 
 def form_table(canvas,frame,list):
     
-    list.append(('','','','',))
+    list.append(['','','','',])
     total_rows = len(list)
     total_columns = len(list[0])
     # if toggle.get():  # If textbox is currently visible
@@ -26,11 +26,22 @@ def form_table(canvas,frame,list):
                 
             e.grid(row=i, column=j)
             e.insert(tk.END, list[i][j])
+
         # make remove button
         removebutton =tk.Button(frame, text="Remove")
         removebutton.grid(row=i, column=total_columns, padx=5)
     
     updateScrollRegion(canvas,frame)
+
+
+# saves information in text boxes
+def save(strlist, boxlist):
+    total_rows = len(strlist)
+    total_columns = len(strlist[0])
+    for i in range(1,total_rows):
+        for j in range(total_columns):
+            strlist[i][j]=boxlist[i][j].get()
+
 
 
 def cancel(visiblelist, element, opp_element, Cancel):

@@ -116,8 +116,10 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     
 
     # shift tab
-    sft_lst = [('Time','Skills','Min Employees'),
+    sft_lst = [['Time','Skills','Min Employees'],
        ]
+    #list of text boxes used to get 
+    sft_boxes=[[],[]]
     # columns in list
     sft_columns = len(sft_lst[0])
     ttk.Label(tab1,text='Create shifts',font=('Arial',12,'bold')).pack(pady=10)
@@ -126,11 +128,11 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
     for j in range(sft_columns):
                 
-        e = tk.Entry(sfttable, width=20, fg='blue',
+        e = tk.Label(sfttable, text=sft_lst[0][j],width=17, fg='blue',
                                font=('Arial',12,'bold'))
                 
         e.grid(row=0, column=j)
-        e.insert(tk.END, sft_lst[0][j])
+        #e.insert(tk.END, sft_lst[0][j])
     add_shift=ttk.Button(shift_center,text='Add shift', command=lambda: form_table(shiftcanvas,sfttable,sft_lst))
     add_shift.pack(side=tk.LEFT)
 
@@ -139,7 +141,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
 
     # employee tab
-    emp_lst = [('ID','Name','Skills','Preferences'),
+    emp_lst = [['ID','Name','Skills','Preferences'],
        ]
     # columns in list
     emp_columns = len(emp_lst[0])
@@ -156,18 +158,18 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
     for j in range(emp_columns):
                 
-        e = tk.Entry(emptable, width=20, fg='blue',
+        e = tk.Label(emptable, text=emp_lst[0][j], width=17, fg='blue',
                                font=('Arial',12,'bold'))
                 
         e.grid(row=0, column=j)
-        e.insert(tk.END, emp_lst[0][j])
+        #e.insert(tk.END, emp_lst[0][j])
 
     employee_center.pack()
     employee_table.pack(pady=20, padx=25, fill='x')
 
 
     # task tab
-    tsk_lst = [('Name','Deadline','Skills','Min Employees'),
+    tsk_lst = [['Name','Deadline','Skills','Min Employees'],
        ]
     # columns in list
     tsk_columns = len(tsk_lst[0])
@@ -175,11 +177,11 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
     for j in range(tsk_columns):
                 
-        e = tk.Entry(tsktable, width=20, fg='blue',
+        e = tk.Label(tsktable, text=tsk_lst[0][j],width=17, fg='blue',
                                font=('Arial',12,'bold'))
                 
         e.grid(row=0, column=j)
-        e.insert(tk.END, tsk_lst[0][j])
+        #e.insert(tk.END, tsk_lst[0][j])
     add_task_button=ttk.Button(task_center,text='Add Task', command=lambda: form_table(tskcanvas,tsktable,tsk_lst))
     add_task_button.pack(side=tk.LEFT)
 
@@ -192,6 +194,9 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
     create_schedule=ttk.Button(schedule_center,text='Create schedule')
     create_schedule.pack(side=tk.LEFT)
+    # load previous information
+    load_data=ttk.Button(schedule_center,text='Load')
+    load_data.pack(side=tk.LEFT)
 
     schedule_center.pack()
 
