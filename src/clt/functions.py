@@ -18,7 +18,7 @@ def form_table(canvas,frame,list):
     # show elements
     # else:  # If textbox is currently hidden
         
-    for i in range(total_rows):
+    for i in range(1,total_rows):
         for j in range(total_columns):
                 
             e = tk.Entry(frame ,width=20, fg='blue',
@@ -26,6 +26,9 @@ def form_table(canvas,frame,list):
                 
             e.grid(row=i, column=j)
             e.insert(tk.END, list[i][j])
+        # make remove button
+        removebutton =tk.Button(frame, text="Remove")
+        removebutton.grid(row=i, column=total_columns, padx=5)
     
     updateScrollRegion(canvas,frame)
 
