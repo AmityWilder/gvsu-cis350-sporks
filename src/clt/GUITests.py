@@ -133,7 +133,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
                 
         e.grid(row=0, column=j)
         #e.insert(tk.END, sft_lst[0][j])
-    add_shift=ttk.Button(shift_center,text='Add shift', command=lambda: form_table(shiftcanvas,sfttable,sft_lst))
+    add_shift=ttk.Button(shift_center,text='Add shift', command=lambda: form_table(shiftcanvas,sfttable,sft_lst,sft_boxes))
     add_shift.pack(side=tk.LEFT)
 
     shift_center.pack()
@@ -143,6 +143,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     # employee tab
     emp_lst = [['ID','Name','Skills','Preferences'],
        ]
+    emp_boxes=[[],[]]
     # columns in list
     emp_columns = len(emp_lst[0])
 
@@ -153,7 +154,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     selected_name = tk.StringVar()
     namemenue = ttk.Combobox(employee_center, width=30,values=employeelist,textvariable=selected_name)
     namemenue.pack(side=tk.LEFT, padx=5)
-    add_employee=ttk.Button(employee_center,text='Add employee', command=lambda: form_table(empcanvas,emptable,emp_lst))
+    add_employee=ttk.Button(employee_center,text='Add employee', command=lambda: form_table(empcanvas,emptable,emp_lst,emp_boxes))
     add_employee.pack(side=tk.LEFT)
 
     for j in range(emp_columns):
@@ -171,6 +172,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     # task tab
     tsk_lst = [['Name','Deadline','Skills','Min Employees'],
        ]
+    tsk_boxes=[[],[]]
     # columns in list
     tsk_columns = len(tsk_lst[0])
     ttk.Label(tab3,text='Create Tasks',font=('Arial',12,'bold')).pack(pady=10)
@@ -182,7 +184,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
                 
         e.grid(row=0, column=j)
         #e.insert(tk.END, tsk_lst[0][j])
-    add_task_button=ttk.Button(task_center,text='Add Task', command=lambda: form_table(tskcanvas,tsktable,tsk_lst))
+    add_task_button=ttk.Button(task_center,text='Add Task', command=lambda: form_table(tskcanvas,tsktable,tsk_lst,tsk_boxes))
     add_task_button.pack(side=tk.LEFT)
 
     task_center.pack()
