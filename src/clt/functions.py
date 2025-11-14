@@ -5,18 +5,12 @@ def updateScrollRegion(canvas,frame):
 	canvas.update_idletasks()
 	canvas.config(scrollregion=frame.bbox())
 
-def form_table(canvas,frame,list,boxlist):
+def form_table(canvas,frame,strlist,boxlist):
     
-    list.append(['','','','',])
-    total_rows = len(list)
-    total_columns = len(list[0])
-    # if toggle.get():  # If textbox is currently visible
-    #     frame.pack_forget()
-    #     toggle.set(False)
-        
-    
-    # show elements
-    # else:  # If textbox is currently hidden
+    strlist.append(['','','','',])
+    total_rows = len(strlist)
+    total_columns = len(strlist[0])
+
         
     
     for j in range(total_columns):
@@ -25,14 +19,17 @@ def form_table(canvas,frame,list,boxlist):
                                font=('Arial',12,'bold'))
                 
         e.grid(row=total_rows-1, column=j)
-        e.insert(tk.END, list[total_rows-1][j])
+        e.insert(tk.END, strlist[total_rows-1][j])
         boxlist[total_rows-1].append(e)
 
         # make remove button
-    boxlist.append([])
-    removebutton =tk.Button(frame, text="Remove")
-    removebutton.grid(row=total_rows-1, column=total_columns, padx=5)
     
+    index=total_rows-1
+    removebutton =tk.Button(frame, text="Remove", command=lambda: remove(strlist,boxlist,index,frame))
+    boxlist[total_rows-1].append(removebutton)
+    boxlist.append([])
+    removebutton.grid(row=total_rows-1, column=total_columns, padx=5)
+
     updateScrollRegion(canvas,frame)
 
 
@@ -43,6 +40,36 @@ def save(strlist, boxlist):
     for i in range(1,total_rows):
         for j in range(total_columns):
             strlist[i][j]=boxlist[i][j].get()
+
+def remove(strlist,boxlist,index,frame):
+    save(strlist,boxlist)
+    for i in range(1,len(boxlist)-1):
+        for m in boxlist[i]:
+            m.grid_forget()
+    
+    strlist.pop(index)
+    boxlist.pop(index)
+    total_rows = len(strlist)
+    total_columns = len(boxlist[1])
+    
+
+    for i in range(1,len(boxlist)-1):
+        for j in range(total_columns-1):
+                
+            
+            e = tk.Entry(frame ,width=20, fg='blue',
+                               font=('Arial',12,'bold'))
+                
+            e.grid(row=i, column=j)
+            e.insert(tk.END, strlist[i][j])
+            boxlist[i][j]=e
+        removebutton =tk.Button(frame, text="Remove", command=lambda: remove(strlist,boxlist,i,frame))
+        boxlist[i][total_columns-1]=removebutton
+        removebutton.grid(row=i, column=total_columns, padx=5)
+
+        
+
+
 
 
 
