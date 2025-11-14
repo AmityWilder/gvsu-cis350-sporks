@@ -1,71 +1,86 @@
 import time, xmlrpc.client, subprocess, atexit, tkinter as tk
+from tkinter import ttk
 
 
 def updateScrollRegion(canvas,frame):
 	canvas.update_idletasks()
 	canvas.config(scrollregion=frame.bbox())
 
-def form_table(canvas,frame,strlist,boxlist):
+class EntryRow:
+    def __init__(self, frame, row_index, on_remove_callback,length):
+        self.frame = frame
+        self.row_index = row_index
+        self.on_remove_callback = on_remove_callback
+        self.widgets = []
+
+        # Create Entry widgets for this row
+        for j in range(length):
+            self.entry1 = ttk.Entry(frame, width=20, foreground='blue',
+                                font=('Arial',12,'bold'))
+            self.entry1.grid(row=self.row_index, column=j, padx=5, pady=2)
+            self.widgets.append(self.entry1)
+
+
+        # Remove button for this row
+        self.remove_button = ttk.Button(frame, text="Remove", command=self.remove_self)
+        self.remove_button.grid(row=self.row_index, column=length, padx=5, pady=2)
+        self.widgets.append(self.remove_button)
+
+    def remove_self(self):
+        # Destroy all widgets in this row
+        for widget in self.widgets:
+            widget.destroy()
+        self.on_remove_callback(self) # Notify the main application to update row indices
+
+    def get_data(self):
+        data=[]
+        for i in range(len(self.widgets)-1):
+            data.append(self.widgets[i].get())
+        return data
+
+
+class Table:
+    def __init__(self, frame,canvas,outframe,labels):
+        self.frame = frame
+        self.canvas=canvas
+        self.length=len(labels)
+
+        self.rows = []
+        self.current_row_index = 0
+
+        self.add_button = ttk.Button(outframe, text="Add Row", command=self.add_row)
+        self.add_button.grid(row=0, column=0, columnspan=self.length+1, pady=10)
+
+        # Initial header
+        for i in range(len(labels)):
+
+            tk.Label(self.frame, text=labels[i],font=('Arial',12,'bold')).grid(row=0, column=i, padx=50)
+
+        #self.add_row() # Add an initial row
+
+    def add_row(self):
+        new_row = EntryRow(self.frame, self.current_row_index+1, self.on_row_removed,self.length)
+        self.rows.append(new_row)
+        self.current_row_index += 1
+        updateScrollRegion(self.canvas,self.frame)
+
+    def on_row_removed(self, removed_row):
+        self.rows.remove(removed_row)
+        self.reindex_rows()
+
+    def reindex_rows(self):
+        # Update row_index for all remaining rows and re-grid them
+        for i, row_obj in enumerate(self.rows):
+            row_obj.row_index = i+1 # +2 to account for header and add button
+            for j, widget in enumerate(row_obj.widgets):
+                widget.grid(row=row_obj.row_index, column=j, padx=5, pady=2)
+
+        self.current_row_index = len(self.rows)
+        updateScrollRegion(self.canvas,self.frame)
+
+
     
-    strlist.append(['','','','',])
-    total_rows = len(strlist)
-    total_columns = len(strlist[0])
 
-        
-    
-    for j in range(total_columns):
-                
-        e = tk.Entry(frame ,width=20, fg='blue',
-                               font=('Arial',12,'bold'))
-                
-        e.grid(row=total_rows-1, column=j)
-        e.insert(tk.END, strlist[total_rows-1][j])
-        boxlist[total_rows-1].append(e)
-
-        # make remove button
-    
-    index=total_rows-1
-    removebutton =tk.Button(frame, text="Remove", command=lambda: remove(strlist,boxlist,index,frame))
-    boxlist[total_rows-1].append(removebutton)
-    boxlist.append([])
-    removebutton.grid(row=total_rows-1, column=total_columns, padx=5)
-
-    updateScrollRegion(canvas,frame)
-
-
-# saves information in text boxes
-def save(strlist, boxlist):
-    total_rows = len(strlist)
-    total_columns = len(strlist[0])
-    for i in range(1,total_rows):
-        for j in range(total_columns):
-            strlist[i][j]=boxlist[i][j].get()
-
-def remove(strlist,boxlist,index,frame):
-    save(strlist,boxlist)
-    for i in range(1,len(boxlist)-1):
-        for m in boxlist[i]:
-            m.grid_forget()
-    
-    strlist.pop(index)
-    boxlist.pop(index)
-    total_rows = len(strlist)
-    total_columns = len(boxlist[1])
-    
-
-    for i in range(1,len(boxlist)-1):
-        for j in range(total_columns-1):
-                
-            
-            e = tk.Entry(frame ,width=20, fg='blue',
-                               font=('Arial',12,'bold'))
-                
-            e.grid(row=i, column=j)
-            e.insert(tk.END, strlist[i][j])
-            boxlist[i][j]=e
-        removebutton =tk.Button(frame, text="Remove", command=lambda: remove(strlist,boxlist,i,frame))
-        boxlist[i][total_columns-1]=removebutton
-        removebutton.grid(row=i, column=total_columns, padx=5)
 
         
 
