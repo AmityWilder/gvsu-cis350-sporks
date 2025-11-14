@@ -120,6 +120,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
        ]
     #list of text boxes used to get 
     sft_boxes=[[],[]]
+
     # columns in list
     sft_columns = len(sft_lst[0])
     ttk.Label(tab1,text='Create shifts',font=('Arial',12,'bold')).pack(pady=10)
@@ -144,6 +145,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     emp_lst = [['ID','Name','Skills','Preferences'],
        ]
     emp_boxes=[[],[]]
+
     # columns in list
     emp_columns = len(emp_lst[0])
 
@@ -173,6 +175,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     tsk_lst = [['Name','Deadline','Skills','Min Employees'],
        ]
     tsk_boxes=[[],[]]
+
     # columns in list
     tsk_columns = len(tsk_lst[0])
     ttk.Label(tab3,text='Create Tasks',font=('Arial',12,'bold')).pack(pady=10)
