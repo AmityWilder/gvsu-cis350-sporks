@@ -52,7 +52,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     #removes focus
     #root.bind_all("<Button-1>", lambda event: event.widget.focus_set())
     root.title("Spork Scheduler")
-    root.geometry("900x480")
+    root.geometry("1000x480")
     
 
 
@@ -116,86 +116,57 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     
 
     # shift tab
-    sft_lst = [['Time','Skills','Min Employees'],
-       ]
+    sft_lst = ['Time','Skills','Min Employees']
     #list of text boxes used to get 
     sft_boxes=[[],[]]
 
     # columns in list
     sft_columns = len(sft_lst[0])
-    ttk.Label(tab1,text='Create shifts',font=('Arial',12,'bold')).pack(pady=10)
+    ttk.Label(tab1,text='Create shifts',font=('Arial',14,'bold')).pack(pady=10)
 
-    
+    shifttab=Table(sfttable,shiftcanvas,shift_center,sft_lst)
 
-    for j in range(sft_columns):
-                
-        e = tk.Label(sfttable, text=sft_lst[0][j],width=17, fg='blue',
-                               font=('Arial',12,'bold'))
-                
-        e.grid(row=0, column=j)
-        #e.insert(tk.END, sft_lst[0][j])
-    add_shift=ttk.Button(shift_center,text='Add shift', command=lambda: form_table(shiftcanvas,sfttable,sft_lst,sft_boxes))
-    add_shift.pack(side=tk.LEFT)
 
     shift_center.pack()
     shift_table.pack(pady=20, padx=75, fill='x')
 
 
     # employee tab
-    emp_lst = [['ID','Name','Skills','Preferences'],
-       ]
-    emp_boxes=[[],[]]
+    emp_lst = ['ID','Name','Skills','Preferences']
+    emp_boxes=[]
 
     # columns in list
     emp_columns = len(emp_lst[0])
 
-    ttk.Label(tab2,text='Employees',font=('Arial',12,'bold')).pack(pady=10)
+    ttk.Label(tab2,text='Employees',font=('Arial',14,'bold')).pack(pady=10)
     employeelist=['-',
                   'example',
                   'jim']
     selected_name = tk.StringVar()
     namemenue = ttk.Combobox(employee_center, width=30,values=employeelist,textvariable=selected_name)
-    namemenue.pack(side=tk.LEFT, padx=5)
-    add_employee=ttk.Button(employee_center,text='Add employee', command=lambda: form_table(empcanvas,emptable,emp_lst,emp_boxes))
-    add_employee.pack(side=tk.LEFT)
-
-    for j in range(emp_columns):
-                
-        e = tk.Label(emptable, text=emp_lst[0][j], width=17, fg='blue',
-                               font=('Arial',12,'bold'))
-                
-        e.grid(row=0, column=j)
-        #e.insert(tk.END, emp_lst[0][j])
+    namemenue.grid(row=1,column=0)
+    employeetab=Table(emptable,empcanvas,employee_center,emp_lst)
 
     employee_center.pack()
     employee_table.pack(pady=20, padx=25, fill='x')
 
 
     # task tab
-    tsk_lst = [['Name','Deadline','Skills','Min Employees'],
-       ]
+    tsk_lst = ['Name','Deadline','Skills','Min Employees']
     tsk_boxes=[[],[]]
 
     # columns in list
     tsk_columns = len(tsk_lst[0])
-    ttk.Label(tab3,text='Create Tasks',font=('Arial',12,'bold')).pack(pady=10)
-
-    for j in range(tsk_columns):
-                
-        e = tk.Label(tsktable, text=tsk_lst[0][j],width=17, fg='blue',
-                               font=('Arial',12,'bold'))
-                
-        e.grid(row=0, column=j)
-        #e.insert(tk.END, tsk_lst[0][j])
-    add_task_button=ttk.Button(task_center,text='Add Task', command=lambda: form_table(tskcanvas,tsktable,tsk_lst,tsk_boxes))
-    add_task_button.pack(side=tk.LEFT)
+    ttk.Label(tab3,text='Create Tasks',font=('Arial',14,'bold')).pack(pady=10)
+    tasktab=Table(tsktable,tskcanvas,task_center,tsk_lst)
+    
 
     task_center.pack()
     task_table.pack(pady=20, padx=25, fill='x')
     
     
     # schedule tab
-    ttk.Label(tab4,text='Create Schedule',font=('Arial',12,'bold')).pack(pady=10)
+    ttk.Label(tab4,text='Create Schedule',font=('Arial',14,'bold')).pack(pady=10)
 
     create_schedule=ttk.Button(schedule_center,text='Create schedule')
     create_schedule.pack(side=tk.LEFT)
