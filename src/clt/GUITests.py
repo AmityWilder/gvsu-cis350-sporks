@@ -116,7 +116,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     
 
     # shift tab
-    sft_lst = ['Time','Skills','Min Employees']
+    sft_lst = ['Name','Start','End','Min Employees']
     #list of text boxes used to get 
     sft_boxes=[[],[]]
 
@@ -132,7 +132,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
 
     # employee tab
-    emp_lst = ['ID','Name','Skills','Preferences']
+    emp_lst = ['Name']
     emp_boxes=[]
 
     # columns in list
@@ -152,13 +152,14 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
 
     # task tab
-    tsk_lst = ['Name','Deadline','Skills','Min Employees']
+    tsk_lst = ['Name','Deadline','Min Employees']
     tsk_boxes=[[],[]]
 
     # columns in list
     tsk_columns = len(tsk_lst[0])
     ttk.Label(tab3,text='Create Tasks',font=('Arial',14,'bold')).pack(pady=10)
     tasktab=Table(tsktable,tskcanvas,task_center,tsk_lst)
+    
     
 
     task_center.pack()

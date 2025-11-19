@@ -16,7 +16,7 @@ class EntryRow:
         # Create Entry widgets for this row
         for j in range(length):
             self.entry1 = ttk.Entry(frame, width=20, foreground='blue',
-                                font=('Arial',12,'bold'))
+                                font=('Arial',12))
             self.entry1.grid(row=self.row_index, column=j, padx=5, pady=2)
             self.widgets.append(self.entry1)
 
@@ -54,7 +54,7 @@ class Table:
         # Initial header
         for i in range(len(labels)):
 
-            tk.Label(self.frame, text=labels[i],font=('Arial',12,'bold')).grid(row=0, column=i, padx=50)
+            tk.Label(self.frame, text=labels[i],font=('Arial',12,'bold'),foreground='blue').grid(row=0, column=i, padx=50)
 
         #self.add_row() # Add an initial row
 
@@ -77,6 +77,11 @@ class Table:
 
         self.current_row_index = len(self.rows)
         updateScrollRegion(self.canvas,self.frame)
+    def send(self):
+        data=[]
+        for i in self.rows:
+            data.append(i.get_data())
+        return data
 
 
     
@@ -88,47 +93,60 @@ class Table:
 
 
 
-def cancel(visiblelist, element, opp_element, Cancel):
-    for i in range(len(element)):
-        current=element[i]
-        current.pack_forget()  # Hide the textbox
+# def cancel(visiblelist, element, opp_element, Cancel):
+#     for i in range(len(element)):
+#         current=element[i]
+#         current.pack_forget()  # Hide the textbox
     
-    for n in range(len(opp_element)):
-        current=opp_element[n]
-        current.pack_forget()  # Hide the textbox
-    for j in range(len(visiblelist)):
-        current=visiblelist[j]
-        current.set(False)
-    Cancel.pack_forget()
+#     for n in range(len(opp_element)):
+#         current=opp_element[n]
+#         current.pack_forget()  # Hide the textbox
+#     for j in range(len(visiblelist)):
+#         current=visiblelist[j]
+#         current.set(False)
+#     Cancel.pack_forget()
+
+def add_shift(proxy, box):
+    start=box
+    end = box
+    staff=box
+    name=box
+    added=proxy.add_slots({'to_add': [{'start': start,
+                                       'end': end,
+                                       'min_staff': staff | None,
+                                       'name': name | None}]})
 
 def add_task(proxy, title_box):
-    title=title_box.get()
-    title_box.delete(0,tk.END)
-    added = proxy.add_tasks({'to_add': [{'title': title}]})
+    title=title_box
+    desc=title_box
+    datetime=title_box
+    added = proxy.add_tasks({'to_add': [{'title': title,
+                                         'desc': desc | None,
+                                         'deadline': datetime | None}]})
 
-def add_user(proxy):
-    
-    added = proxy.add_users({'to_add': [{'name': 'example'}]})
+def add_user(proxy, box):
+    name=box
+    added = proxy.add_users({'to_add': [{'name': name}]})
 
-def toggle_elements(curr_element_visible,opp_element_visible, element, opp_element, Cancel):
-    # hide elements
-    if curr_element_visible.get():  # If textbox is currently visible
-        for i in range(len(element)):
-            current=element[i]
-            current.pack_forget()  # Hide the textbox
-        curr_element_visible.set(False)
-        Cancel.pack_forget()
+# def toggle_elements(curr_element_visible,opp_element_visible, element, opp_element, Cancel):
+#     # hide elements
+#     if curr_element_visible.get():  # If textbox is currently visible
+#         for i in range(len(element)):
+#             current=element[i]
+#             current.pack_forget()  # Hide the textbox
+#         curr_element_visible.set(False)
+#         Cancel.pack_forget()
     
-    # show elements
-    else:  # If textbox is currently hidden
-        if opp_element_visible.get():
-            for n in range(len(opp_element)):
-                current=opp_element[n]
-                current.pack_forget()  # Hide the textbox
-            opp_element_visible.set(False)
-        for j in range(len(element)):
-            current=element[j]
-            current.pack(pady=5)  # Show the textbox
-        curr_element_visible.set(True)
-        Cancel.pack(side=tk.TOP)
+#     # show elements
+#     else:  # If textbox is currently hidden
+#         if opp_element_visible.get():
+#             for n in range(len(opp_element)):
+#                 current=opp_element[n]
+#                 current.pack_forget()  # Hide the textbox
+#             opp_element_visible.set(False)
+#         for j in range(len(element)):
+#             current=element[j]
+#             current.pack(pady=5)  # Show the textbox
+#         curr_element_visible.set(True)
+#         Cancel.pack(side=tk.TOP)
         
