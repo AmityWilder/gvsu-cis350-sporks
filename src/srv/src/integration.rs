@@ -779,7 +779,7 @@ pub fn get_users(filter: UserFilter) -> Result<UserMap<PyUser>> {
                 && name_pat.is_none_or(|x| x.is_match(&user.name))
         })
         .map(From::from)
-        .collect()) // TODO: implement filter
+        .collect())
 }
 
 /// Removes one or more rules from one or more users, returning a list of any user IDs that do not exist and therefore could not have any rules popped.
