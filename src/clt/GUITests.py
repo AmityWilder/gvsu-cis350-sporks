@@ -170,14 +170,14 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     tsksave=ttk.Button(tsk_bottom,text='Save',command=lambda:saving(proxy,tasktab,'task'))
     tsksave.pack(side=tk.BOTTOM)
 
-    task_button = tk.Button(tsk_bottom, text="Add Task", command=lambda: add_task(proxy, [task_name,task_desc,task_dead]))
-    task_name = tk.Entry(tsk_bottom, width=30)
-    task_desc = tk.Entry(tsk_bottom, width=30)
-    task_dead = tk.Entry(tsk_bottom, width=30)
-    task_button.pack()
-    task_name.pack()
-    task_desc.pack()
-    task_dead.pack()
+    # task_button = tk.Button(tsk_bottom, text="Add Task", command=lambda: add_task(proxy, [task_name,task_desc,task_dead]))
+    # task_name = tk.Entry(tsk_bottom, width=30)
+    # task_desc = tk.Entry(tsk_bottom, width=30)
+    # task_dead = tk.Entry(tsk_bottom, width=30)
+    # task_button.pack()
+    # task_name.pack()
+    # task_desc.pack()
+    # task_dead.pack()
     
     
 
