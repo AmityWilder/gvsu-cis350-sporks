@@ -106,26 +106,39 @@ class Table:
 #         current.set(False)
 #     Cancel.pack_forget()
 
+def saving(proxy,table,savetype):
+    data=table.send()
+    if savetype=='shift':
+        for i in data:
+            add_shift(proxy,i)
+    elif savetype=='task':
+        for i in data:
+            add_task(proxy,i)
+    elif savetype == 'user':
+        for i in data:
+            add_user(proxy,i)
+
+
 def add_shift(proxy, box):
-    start=box
-    end = box
-    staff=box
-    name=box
+    start=box[1]
+    end = box[2]
+    staff=box[3]
+    name=box[0]
     added=proxy.add_slots({'to_add': [{'start': start,
                                        'end': end,
-                                       'min_staff': staff | None,
-                                       'name': name | None}]})
+                                       'min_staff': staff,
+                                       'name': name}]})
 
 def add_task(proxy, title_box):
-    title=title_box
-    desc=title_box
-    datetime=title_box
+    title=title_box[0]
+    desc=title_box[2]
+    datetime=title_box[1]
     added = proxy.add_tasks({'to_add': [{'title': title,
-                                         'desc': desc | None,
-                                         'deadline': datetime | None}]})
+                                         'desc': desc,
+                                         'deadline': datetime}]})
 
 def add_user(proxy, box):
-    name=box
+    name=box[0]
     added = proxy.add_users({'to_add': [{'name': name}]})
 
 # def toggle_elements(curr_element_visible,opp_element_visible, element, opp_element, Cancel):

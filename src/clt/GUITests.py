@@ -52,7 +52,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     #removes focus
     #root.bind_all("<Button-1>", lambda event: event.widget.focus_set())
     root.title("Spork Scheduler")
-    root.geometry("1000x480")
+    root.geometry("1100x480")
     
 
 
@@ -87,6 +87,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     shiftbar.pack(fill=tk.Y,side=tk.RIGHT,expand=tk.FALSE)
     shiftcanvas.pack(fill=tk.BOTH, side=tk.LEFT, expand=tk.TRUE)
     shiftcanvas.create_window(0,0, window=sfttable,anchor=tk.NW)
+    sft_bottom=ttk.Frame(tab1)
 
     employee_center=ttk.Frame(tab2)
     employee_table=ttk.Frame(tab2)
@@ -98,6 +99,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     empbar.pack(fill=tk.Y,side=tk.RIGHT,expand=tk.FALSE)
     empcanvas.pack(fill=tk.BOTH, side=tk.LEFT, expand=tk.TRUE)
     empcanvas.create_window(0,0, window=emptable,anchor=tk.NW)
+    emp_bottom=ttk.Frame(tab2)
 
     task_center=ttk.Frame(tab3)
     task_table=ttk.Frame(tab3)
@@ -109,6 +111,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     tskbar.pack(fill=tk.Y,side=tk.RIGHT,expand=tk.FALSE)
     tskcanvas.pack(fill=tk.BOTH, side=tk.LEFT, expand=tk.TRUE)
     tskcanvas.create_window(0,0, window=tsktable,anchor=tk.NW)
+    tsk_bottom=ttk.Frame(tab3)
 
     schedule_center=ttk.Frame(tab4)
     schedule_image=ttk.Frame(tab4)
@@ -125,10 +128,12 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     ttk.Label(tab1,text='Create shifts',font=('Arial',14,'bold')).pack(pady=10)
 
     shifttab=Table(sfttable,shiftcanvas,shift_center,sft_lst)
-
+    sftsave=ttk.Button(sft_bottom,text='Save',command=lambda:saving(proxy,shifttab,'shift'))
+    sftsave.pack(side=tk.BOTTOM)
 
     shift_center.pack()
     shift_table.pack(pady=20, padx=75, fill='x')
+    sft_bottom.pack()
 
 
     # employee tab
@@ -139,31 +144,46 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     emp_columns = len(emp_lst[0])
 
     ttk.Label(tab2,text='Employees',font=('Arial',14,'bold')).pack(pady=10)
-    employeelist=['-',
-                  'example',
-                  'jim']
-    selected_name = tk.StringVar()
-    namemenue = ttk.Combobox(employee_center, width=30,values=employeelist,textvariable=selected_name)
-    namemenue.grid(row=1,column=0)
+    #employeelist=['-',
+    #              'example',
+    #              'jim']
+    #selected_name = tk.StringVar()
+    #namemenue = ttk.Combobox(employee_center, width=30,values=employeelist,textvariable=selected_name)
+    #namemenue.grid(row=1,column=0)
     employeetab=Table(emptable,empcanvas,employee_center,emp_lst)
+    empsave=ttk.Button(emp_bottom,text='Save',command=lambda:saving(proxy,employeetab,'user'))
+    empsave.pack(side=tk.BOTTOM)
 
     employee_center.pack()
     employee_table.pack(pady=20, padx=25, fill='x')
+    emp_bottom.pack()
 
 
     # task tab
-    tsk_lst = ['Name','Deadline','Min Employees']
+    tsk_lst = ['Name','Deadline','Description']
     tsk_boxes=[[],[]]
 
     # columns in list
     tsk_columns = len(tsk_lst[0])
     ttk.Label(tab3,text='Create Tasks',font=('Arial',14,'bold')).pack(pady=10)
     tasktab=Table(tsktable,tskcanvas,task_center,tsk_lst)
+    tsksave=ttk.Button(tsk_bottom,text='Save',command=lambda:saving(proxy,tasktab,'task'))
+    tsksave.pack(side=tk.BOTTOM)
+
+    task_button = tk.Button(tsk_bottom, text="Add Task", command=lambda: add_task(proxy, [task_name,task_desc,task_dead]))
+    task_name = tk.Entry(tsk_bottom, width=30)
+    task_desc = tk.Entry(tsk_bottom, width=30)
+    task_dead = tk.Entry(tsk_bottom, width=30)
+    task_button.pack()
+    task_name.pack()
+    task_desc.pack()
+    task_dead.pack()
     
     
 
     task_center.pack()
     task_table.pack(pady=20, padx=25, fill='x')
+    tsk_bottom.pack()
     
     
     # schedule tab
