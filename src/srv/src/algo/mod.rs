@@ -105,7 +105,7 @@ impl Schedule {
         let _deps = dep_graph(tasks)?;
         // let ord = dep_order(&deps);
 
-        let mut slot_candidates = slots
+        let mut _slot_candidates = slots
             .iter()
             .map(|slot| {
                 let interval = &slot.interval;

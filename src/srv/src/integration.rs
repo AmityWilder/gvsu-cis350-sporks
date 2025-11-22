@@ -64,12 +64,22 @@ mod re_serde {
     }
 }
 
+/// A string filter.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Pattern {
+    /// Strings that match the pattern `^literal_text.*$`.
     StartsWith(String),
+
+    /// Strings that match the pattern `^.*literal_text$`.
     EndsWith(String),
+
+    /// Strings that match the pattern `^.*literal_text.*$`.
     Contains(String),
+
+    /// Strings that match the pattern `^literal_text$`.
     Exactly(String),
+
+    /// Strings that match the regex pattern.
     Regex(#[serde(with = "re_serde")] Regex),
 }
 
@@ -110,6 +120,7 @@ impl Pattern {
             .map_err(|e| Fault::new(422, format!("invalid regex: {e}")))
     }
 
+    /// Test if `haystack` matches the [`Pattern`].
     pub fn is_match(&self, haystack: &str) -> bool {
         match self {
             Pattern::StartsWith(s) => haystack.starts_with(s),
@@ -119,13 +130,6 @@ impl Pattern {
             Pattern::Regex(re) => re.is_match(haystack),
         }
     }
-}
-
-fn optional_regex(field: &str, pat: &Option<String>) -> Result<Option<Regex>> {
-    pat.as_deref()
-        .map(Regex::new)
-        .transpose()
-        .map_err(|e| Fault::new(422, format!("invalid regex in `{field}`: {e}")))
 }
 
 /// Once every `n` units. Fields are added together.
@@ -233,6 +237,9 @@ pub struct PyRule {
     /// [`None`] if one-off.
     pub repeat: Option<PyRep>,
 
+    /// How much the [`User`] prefers the times described by this rule
+    ///
+    /// See [`Preference`]
     pub preference: f32,
 }
 
@@ -624,15 +631,23 @@ pub fn get_rules(user: UserId) -> Result<Vec<PyRule>> {
     }
 }
 
+/// A filter for selecting [`Slot`]s from the backend database.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SlotFilter {
-    starting_before: Option<DateTime<Utc>>,
-    starting_after: Option<DateTime<Utc>>,
-    ending_before: Option<DateTime<Utc>>,
-    ending_after: Option<DateTime<Utc>>,
-    min_staff_min: Option<usize>,
-    min_staff_max: Option<usize>,
-    name_pat: Option<Pattern>,
+    /// The ealiest datetime the [`Slot`] can start at.
+    pub starting_after: Option<DateTime<Utc>>,
+    /// The latest datetime the [`Slot`] can start at.
+    pub starting_before: Option<DateTime<Utc>>,
+    /// The ealiest datetime the [`Slot`] can end at.
+    pub ending_after: Option<DateTime<Utc>>,
+    /// The latest datetime the [`Slot`] can end at.
+    pub ending_before: Option<DateTime<Utc>>,
+    /// The least staff the [`Slot`] can require (0 is equivalent to [`None`]).
+    pub min_staff_min: Option<usize>,
+    /// The greatest staff the [`Slot`] can require (0 is equivalent to [`None`]).
+    pub min_staff_max: Option<usize>,
+    /// A [`Pattern`] the [`Slot::name`] must [match](Pattern::is_match).
+    pub name_pat: Option<Pattern>,
 }
 
 /// Returns an array of all current slots.
@@ -686,13 +701,19 @@ pub fn get_slots(filter: SlotFilter) -> Result<Vec<PySlot>> {
         .collect())
 }
 
+/// A filter for selecting [`Task`]s from the backend database.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskFilter {
-    ids: Option<TaskSet>,
-    title_pat: Option<Pattern>,
-    desc_pat: Option<Pattern>,
-    deadline_before: Option<DateTime<Utc>>,
-    deadline_after: Option<DateTime<Utc>>,
+    /// A whitelist of the exact [`Task::id`]s that should be included.
+    pub ids: Option<TaskSet>,
+    /// A [`Pattern`] the [`Task::title`] must [match](Pattern::is_match).
+    pub title_pat: Option<Pattern>,
+    /// A [`Pattern`] the [`Task::desc`] must [match](Pattern::is_match).
+    pub desc_pat: Option<Pattern>,
+    /// The ealiest datetime the [`Task::deadline`] can be.
+    pub deadline_after: Option<DateTime<Utc>>,
+    /// The latest datetime the [`Task::deadline`] can be.
+    pub deadline_before: Option<DateTime<Utc>>,
 }
 
 /// Returns a dictionary of all current tasks, filtered by the parameters.
@@ -747,10 +768,13 @@ pub fn get_tasks(filter: TaskFilter) -> Result<TaskMap<PyTask>> {
         .collect())
 }
 
+/// A filter for selecting [`User`]s from the backend database.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserFilter {
-    ids: Option<Vec<UserId>>,
-    name_pat: Option<Pattern>,
+    /// A whitelist of the exact [`User::id`]s that should be included.
+    pub ids: Option<Vec<UserId>>,
+    /// A [`Pattern`] the [`User::name`] must [match](Pattern::is_match).
+    pub name_pat: Option<Pattern>,
 }
 
 /// Returns a dictionary of all current users, filtered by the parameters.
@@ -795,9 +819,9 @@ pub fn pop_rules(to_pop: UserMap<Vec<()>>) -> Result<UserSet> {
     let mut users = USERS.write();
     Ok(to_pop
         .into_iter()
-        .filter_map(|(user, rules)| match users.get_mut(&user) {
+        .filter_map(|(user, _rules)| match users.get_mut(&user) {
             Some(user) => {
-                user.availability.retain(|rule| todo!());
+                user.availability.retain(|_rule| todo!());
                 None
             }
             None => Some(user),
