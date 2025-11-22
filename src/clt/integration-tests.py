@@ -5,7 +5,7 @@ def test_add_one_user(proxy):
     user = {
         'name': "Squeeby Deeby",
     }
-    ids = proxy.add_users({'to_add': [user]})
+    ids = proxy.add_users([user])
     assert ids is not None and len(ids) == 1
 
 
@@ -16,7 +16,7 @@ def test_add_multiple_users(proxy):
     user2 = {
         'name': "Mark Hapenstance",
     }
-    ids = proxy.add_users({'to_add': [user1, user2]})
+    ids = proxy.add_users([user1, user2])
     assert ids is not None and len(ids) == 2
 
 
