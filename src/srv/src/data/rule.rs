@@ -4,7 +4,6 @@ use crate::data::{Preference, TimeInterval};
 use chrono::{DateTime, Days, Months, TimeDelta, Utc};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use thiserror::Error;
 
 /// Once every `n` units. Fields are added together.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
