@@ -13,7 +13,7 @@ def open_server(build: Literal["debug", "release"], socket: str = "127.0.0.1:808
     srv = subprocess.Popen([f"./target/{build}/gvsu-cis350-sporks", socket])
     time.sleep(0.01) # wait for the server to be open
 
-    proxy = ProxyWrapper(f"http://{socket}")
+    proxy = ProxyWrapper(f"http://{socket}", allow_none=True, use_datetime=False, use_builtin_types=True)
 
     def close_server():
         print("attempting to close server")

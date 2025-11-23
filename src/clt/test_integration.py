@@ -86,6 +86,9 @@ def test_add_one_task():
     with open_test_server() as proxy:
         task = Task(
             title = "Sweep dishes",
+            desc = "you heard me",
+            deadline = datetime(2006, 11, 23, 15, 00),
+            awaiting = [],
         )
         proxy.sv_add_tasks([task])
 
@@ -94,8 +97,14 @@ def test_add_multiple_tasks():
     with open_test_server() as proxy:
         task1 = Task(
             title = "Sweep dishes",
+            desc = "you heard me",
+            deadline = datetime(2006, 11, 23, 15, 00),
+            awaiting = [],
         )
         task2 = Task(
             title = "Build soap",
+            desc = "you heard me",
+            deadline = datetime(2006, 11, 23, 15, 00),
+            awaiting = [],
         )
         proxy.sv_add_tasks([task1, task2])
