@@ -38,7 +38,7 @@ use serde::{Serialize, de::DeserializeOwned};
 use std::{
     fs::File,
     io::BufReader,
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    net::SocketAddr,
     path::{Path, PathBuf},
     sync::atomic::Ordering::Relaxed,
 };
@@ -58,6 +58,10 @@ const STYLE: Styles = Styles::styled()
 #[derive(Debug, Parser)]
 #[command(version, propagate_version = true, about, long_about = None, styles = STYLE, color = clap::ColorChoice::Always)]
 pub struct Cli {
+    /// Provide path to user data file
+    #[arg(value_name = "SOCKET")]
+    socket: SocketAddr,
+
     /// Provide path to user data file
     #[arg(short, long, value_name = "PATH", default_value_os_t = PathBuf::from("./users.csv"))]
     users: PathBuf,
@@ -94,6 +98,7 @@ impl RunningHandle {
 
 fn main() -> Result<()> {
     let Cli {
+        socket,
         users,
         slots,
         tasks,
@@ -176,7 +181,6 @@ fn main() -> Result<()> {
     **TASKS.write() = tasks;
     **USERS.write() = users;
 
-    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
     let mut server = Server::new();
 
     integration::register(&mut server);
