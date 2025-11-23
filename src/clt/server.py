@@ -21,7 +21,7 @@ def open_server(build: Literal["debug", "release"], socket: str = "127.0.0.1:808
             print("server already closed")
         else:
             try:
-                proxy.quit()
+                proxy.sv_quit()
                 slept = 0
                 while srv.poll() is None:
                     # still running after 5 seconds
