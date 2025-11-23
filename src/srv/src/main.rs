@@ -58,7 +58,7 @@ const STYLE: Styles = Styles::styled()
 #[derive(Debug, Parser)]
 #[command(version, propagate_version = true, about, long_about = None, styles = STYLE, color = clap::ColorChoice::Always)]
 pub struct Cli {
-    /// Provide path to user data file
+    /// Socket address to listen on (example: "127.0.0.1:8080")
     #[arg(value_name = "SOCKET")]
     socket: SocketAddr,
 
@@ -90,8 +90,8 @@ impl Drop for RunningHandle {
 }
 
 impl RunningHandle {
-    pub fn init() -> Self {
-        println!("srv: running");
+    pub fn init(socket: SocketAddr) -> Self {
+        println!("srv: listening at {socket}");
         Self(())
     }
 }
@@ -186,7 +186,7 @@ fn main() -> Result<()> {
     integration::register(&mut server);
 
     let bound_server = server.bind(&socket).unwrap();
-    let _marker = RunningHandle::init();
+    let _marker = RunningHandle::init(socket);
     loop {
         bound_server.poll();
         if EXIT_REQUESTED.load(Relaxed) {
