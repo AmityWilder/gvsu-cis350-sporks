@@ -84,20 +84,11 @@ class Table:
         return data
 
 
-    
-
-
-        
-
-
-
-
-
 # def cancel(visiblelist, element, opp_element, Cancel):
 #     for i in range(len(element)):
 #         current=element[i]
 #         current.pack_forget()  # Hide the textbox
-    
+
 #     for n in range(len(opp_element)):
 #         current=opp_element[n]
 #         current.pack_forget()  # Hide the textbox
@@ -149,7 +140,7 @@ def add_user(proxy, box):
 #             current.pack_forget()  # Hide the textbox
 #         curr_element_visible.set(False)
 #         Cancel.pack_forget()
-    
+
 #     # show elements
 #     else:  # If textbox is currently hidden
 #         if opp_element_visible.get():
@@ -162,4 +153,3 @@ def add_user(proxy, box):
 #             current.pack(pady=5)  # Show the textbox
 #         curr_element_visible.set(True)
 #         Cancel.pack(side=tk.TOP)
-        

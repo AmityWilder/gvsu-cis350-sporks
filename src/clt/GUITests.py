@@ -1,59 +1,19 @@
-import time, xmlrpc.client, subprocess, atexit, tkinter as tk
+import tkinter as tk
 from tkinter import ttk
 from functions import *
-
-
+from server import open_server
 
 
 # take the data
 
 
-IS_DEBUG_BUILD = True
-if IS_DEBUG_BUILD:
-    BUILD = "debug"
-else:
-    BUILD = "release"
-
-# open the server in parallel
-srv = subprocess.Popen([f"./target/{BUILD}/gvsu-cis350-sporks.exe"])
-
-# create a line of communication with the server
-with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
-
-    def close_server():
-        print("attempting to close server")
-        proxy.quit({})
-        slept = 0
-        while srv.poll() is None:
-            # still running after 5 seconds
-            if slept >= 2:
-                print("close failed, terminating server")
-                srv.terminate()
-                break
-            else:
-                time.sleep(0.01)
-                slept += 0.01
-        slept = 0
-        while srv.poll() is None:
-            # still running 5 seconds after termination
-            if slept >= 5:
-                print("termination failed, killing server")
-                srv.kill()
-                break
-            else:
-                time.sleep(0.01)
-                slept += 0.01
-        print("finished")
-
-    atexit.register(close_server)
-
+with open_server("debug") as proxy:
     # Create the main window
     root = tk.Tk()
     #removes focus
     #root.bind_all("<Button-1>", lambda event: event.widget.focus_set())
     root.title("Spork Scheduler")
     root.geometry("1100x480")
-    
 
 
     tabControl = ttk.Notebook(root)
@@ -63,9 +23,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     tab2 = ttk.Frame(tabControl)
     tab3 = ttk.Frame(tabControl)
     tab4 = ttk.Frame(tabControl)
-    
-    
-    
+
 
     tabControl.add(tab1, text ='Shifts')
     tabControl.add(tab2, text ='Employees')
@@ -73,8 +31,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     tabControl.add(tab4, text ='Schedule')
 
     tabControl.pack(expand = 1, fill ="both")
-    
-    
+
 
     # frames
     shift_center=ttk.Frame(tab1)
@@ -116,11 +73,10 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     schedule_center=ttk.Frame(tab4)
     schedule_image=ttk.Frame(tab4)
 
-    
 
     # shift tab
     sft_lst = ['Name','Start','End','Min Employees']
-    #list of text boxes used to get 
+    #list of text boxes used to get
     sft_boxes=[[],[]]
 
     # columns in list
@@ -178,14 +134,13 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     # task_name.pack()
     # task_desc.pack()
     # task_dead.pack()
-    
-    
+
 
     task_center.pack()
     task_table.pack(pady=20, padx=25, fill='x')
     tsk_bottom.pack()
-    
-    
+
+
     # schedule tab
     ttk.Label(tab4,text='Create Schedule',font=('Arial',14,'bold')).pack(pady=10)
 
@@ -201,11 +156,9 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     schedule_image.pack()
 
 
-
     # center=tk.Frame(root)
     # below_center=tk.Frame(root)
-    
-    
+
 
     # # Create a label widget
     # label = tk.Label(root, text="Welcome!")
@@ -213,7 +166,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
     # # Create a button widget
     # Cancel_button = tk.Button(root, text="Cancel")
-    
+
     # #manager elements
     # task_button = tk.Button(center, text="Add Task", command=lambda: add_task(proxy, task_name))
     # task_name = tk.Entry(center, width=30)
@@ -232,17 +185,17 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
     # # employee elemenets
     # employee_time_button = tk.Button(center, text="Add Time")
-    
+
     # employee_skills_button = tk.Button(center, text="Add Skill")
 
     # orderframe=tk.Frame(center)
     # # Define the options for the dropdown
-    
+
 
     # names_label = tk.Label(orderframe, text="Select Employee:")
     # # Create a StringVar to hold the selected option
     # selected_name = tk.StringVar()
-    
+
 
     # # Create the OptionMenu widget
     # names_menu = ttk.Combobox(orderframe, width=30, textvariable=selected_name)
@@ -256,7 +209,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     # table_button = tk.Button(center, text='create table', command=lambda: form_table(frame_toggled,below_center,lst))
 
     # # toggled elements
-    
+
     # employeelist=[orderframe, employee_time_button, employee_skills_button,table_button]
 
 
@@ -267,10 +220,9 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
     # toggledlist=[manager_toggled,employee_toggled,edit_toggled]
 
-    
 
     # start_center.pack(pady= 10)
-    
+
     # manager=tk.Button(start_center, text="Manager", command=lambda:toggle_elements(manager_toggled,employee_toggled,managerlist,employeelist, Cancel_button))
     # manager.pack(side=tk.LEFT, padx= 5)
 
@@ -281,19 +233,16 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     # edit_button.pack(padx=5)
 
     # center.pack(anchor='center')
-    
-    
-    
-    # editlist=[] #figure out what edit needs
 
+
+    # editlist=[] #figure out what edit needs
 
 
     # Cancel_button.config(command=lambda: cancel(toggledlist,managerlist,employeelist, Cancel_button))
 
-    
 
     # # Create the button
-    
+
     # # Create the Entry widget (initially hidden)
     # entry_box = tk.Entry(root, width=30)
     # entered=entry_box.get() # stores string entered into the text box
