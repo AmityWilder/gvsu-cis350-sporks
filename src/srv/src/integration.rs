@@ -1161,28 +1161,23 @@ pub fn mut_users(delta: UserMap<UserDelta>) -> Result<UserMap<RuleSet>> {
                     let NoGrowSetDelta { delete, update } = &mut delta.availability;
                     user.availability.retain(|k, _| !delete.remove(k));
                     for (k, rule) in &mut user.availability {
-                        if let Some(delta) = update.remove(k) {
+                        if let Some(mut delta) = update.remove(k) {
                             {
-                                let SetDelta {
-                                    mut delete,
-                                    create,
-                                    mut update,
-                                } = delta.include;
                                 let mut it = 0..;
                                 rule.include.retain(|v| {
                                     let i = it.next().unwrap();
-                                    if delete.remove(&i) {
+                                    if delta.include.delete.remove(&i) {
                                         false
                                     } else {
                                         // update has to be included in retain because
                                         // indices will change when removals happen
-                                        if let Some(replacement) = update.remove(&i) {
+                                        if let Some(replacement) = delta.include.update.remove(&i) {
                                             *v = replacement;
                                         }
                                         true
                                     }
                                 });
-                                rule.include.extend(create);
+                                rule.include.extend(delta.include.create);
                             }
                             delta.rep.apply(&mut rule.rep);
                             delta.pref.apply(&mut rule.pref);
@@ -1191,8 +1186,20 @@ pub fn mut_users(delta: UserMap<UserDelta>) -> Result<UserMap<RuleSet>> {
                 }
                 delta.user_prefs.apply(&mut user.user_prefs);
                 delta.skills.apply(&mut user.skills);
+
+                if delta.availability.delete.is_empty() && delta.availability.update.is_empty() {
+                    return None;
+                }
             }
-            todo!()
+            Some((
+                user_id,
+                delta
+                    .availability
+                    .delete
+                    .into_iter()
+                    .chain(delta.availability.update.into_keys())
+                    .collect(),
+            ))
         })
         .collect())
 }
