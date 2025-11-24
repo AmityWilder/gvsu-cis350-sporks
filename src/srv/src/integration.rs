@@ -1,4 +1,7 @@
 //! Integration functions for communicating with the Python frontend
+//!
+//! The main reason for the `Py...` types is so that structures without IDs can be passed.
+//! Additionally, many backend types have non-[`None`] "None-like" values (such as empty strings).
 
 use crate::data::*;
 use chrono::{DateTime, Utc};
@@ -9,21 +12,17 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::{
     num::NonZeroUsize,
-    sync::{
-        LazyLock,
-        atomic::{AtomicBool, AtomicU64, Ordering::Relaxed},
-    },
+    path::PathBuf,
+    sync::{LazyLock, atomic::AtomicBool},
 };
 use xml_rpc::{Fault, Server};
 
 type Result<T> = std::result::Result<T, Fault>;
 
 pub(crate) static EXIT_REQUESTED: AtomicBool = const { AtomicBool::new(false) };
-pub(crate) static SLOTS: RwLock<Vec<Slot>> = RwLock::new(Vec::new());
+pub(crate) static SLOTS: RwLock<LazyLock<SlotMap>> = RwLock::new(LazyLock::new(SlotMap::default));
 pub(crate) static TASKS: RwLock<LazyLock<TaskMap>> = RwLock::new(LazyLock::new(TaskMap::default));
 pub(crate) static USERS: RwLock<LazyLock<UserMap>> = RwLock::new(LazyLock::new(UserMap::default));
-pub(crate) static NEXT_USER_ID: AtomicU64 = AtomicU64::new(0);
-pub(crate) static NEXT_TASK_ID: AtomicU64 = AtomicU64::new(0);
 
 mod re_serde {
     use regex::Regex;
@@ -112,7 +111,8 @@ impl Pattern {
     ///
     /// # Errors
     ///
-    /// Produces a [422 Unprocessable Content](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/422) error if the argument is not valid [`regex`].
+    /// Produces a [422 Unprocessable Content](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/422)
+    /// error if the argument is not valid [`regex`].
     #[inline]
     pub fn regex(s: String) -> Result<Self> {
         Regex::new(&s)
@@ -138,16 +138,22 @@ impl Pattern {
 pub struct PyFreq {
     /// Repeat every `n` seconds.
     pub seconds: Option<u8>,
+
     /// Repeat every `n` minutes.
     pub minutes: Option<u8>,
+
     /// Repeat every `n` hours.
     pub hours: Option<u8>,
+
     /// Repeat every `n` days.
     pub days: Option<u8>,
+
     /// Repeat every `n` weeks.
     pub weeks: Option<u8>,
+
     /// Repeat every `n` months.
     pub months: Option<u8>,
+
     /// Repeat every `n` years.
     pub years: Option<u16>,
 }
@@ -243,15 +249,16 @@ pub struct PyRule {
     pub preference: f32,
 }
 
-impl From<PyRule> for Rule {
+impl From<(RuleId, PyRule)> for Rule {
     #[inline]
-    fn from(value: PyRule) -> Self {
+    fn from((id, value): (RuleId, PyRule)) -> Self {
         let PyRule {
             include,
             repeat,
             preference,
         } = value;
         Self {
+            id,
             include,
             rep: repeat.map(From::from),
             pref: Preference(preference),
@@ -259,35 +266,43 @@ impl From<PyRule> for Rule {
     }
 }
 
-impl From<Rule> for PyRule {
+impl From<Rule> for (RuleId, PyRule) {
     #[inline]
     fn from(value: Rule) -> Self {
         let Rule {
+            id,
             include,
             rep,
             pref: Preference(preference),
         } = value;
-        Self {
-            include,
-            repeat: rep.map(From::from),
-            preference,
-        }
+        (
+            id,
+            PyRule {
+                include,
+                repeat: rep.map(From::from),
+                preference,
+            },
+        )
     }
 }
 
-impl From<&Rule> for PyRule {
+impl From<&Rule> for (RuleId, PyRule) {
     #[inline]
     fn from(value: &Rule) -> Self {
         let Rule {
+            id,
             include,
             rep,
             pref: Preference(preference),
         } = value;
-        Self {
-            include: include.clone(),
-            repeat: rep.as_ref().cloned().map(From::from),
-            preference: *preference,
-        }
+        (
+            *id,
+            PyRule {
+                include: include.clone(),
+                repeat: rep.as_ref().cloned().map(From::from),
+                preference: *preference,
+            },
+        )
     }
 }
 
@@ -307,9 +322,9 @@ pub struct PySlot {
     pub name: Option<String>,
 }
 
-impl From<PySlot> for Slot {
+impl From<(SlotId, PySlot)> for Slot {
     #[inline]
-    fn from(slot: PySlot) -> Self {
+    fn from((id, slot): (SlotId, PySlot)) -> Self {
         let PySlot {
             start,
             end,
@@ -317,6 +332,7 @@ impl From<PySlot> for Slot {
             name,
         } = slot;
         Self {
+            id,
             interval: TimeInterval { start, end },
             min_staff: min_staff.and_then(NonZeroUsize::new),
             name: name.unwrap_or_default(),
@@ -324,20 +340,31 @@ impl From<PySlot> for Slot {
     }
 }
 
-impl From<Slot> for PySlot {
+impl From<Slot> for (SlotId, PySlot) {
     #[inline]
     fn from(slot: Slot) -> Self {
         let Slot {
+            id,
             interval: TimeInterval { start, end },
             min_staff,
             name,
         } = slot;
-        Self {
-            start,
-            end,
-            min_staff: min_staff.map(NonZeroUsize::get),
-            name: (!name.is_empty()).then_some(name),
-        }
+        (
+            id,
+            PySlot {
+                start,
+                end,
+                min_staff: min_staff.map(NonZeroUsize::get),
+                name: (!name.is_empty()).then_some(name),
+            },
+        )
+    }
+}
+
+impl From<&Slot> for (SlotId, PySlot) {
+    #[inline]
+    fn from(slot: &Slot) -> Self {
+        slot.clone().into()
     }
 }
 
@@ -355,7 +382,7 @@ pub struct PyTask {
     pub deadline: Option<DateTime<Utc>>,
 
     /// Tasks that must be completed before this one can start
-    pub awaiting: Option<Vec<TaskId>>,
+    pub awaiting: Option<TaskSet>,
 }
 
 impl From<(TaskId, PyTask)> for Task {
@@ -392,7 +419,7 @@ impl From<Task> for (TaskId, PyTask) {
                 title,
                 desc: (!desc.is_empty()).then_some(desc),
                 deadline,
-                awaiting: (!deps.is_empty()).then(|| Vec::from_iter(deps)),
+                awaiting: (!deps.is_empty()).then(|| deps.clone()),
             },
         )
     }
@@ -435,7 +462,7 @@ impl From<(UserId, PyUser)> for User {
         User {
             id,
             name,
-            availability: Vec::new(),
+            availability: RuleMap::default(),
             user_prefs: UserMap::default(),
             skills: SkillMap::default(),
         }
@@ -458,10 +485,13 @@ impl From<&User> for (UserId, PyUser) {
     }
 }
 
-/// Add one or more availability rules to one or more users, returning a list of any IDs that failed to be modified (ex: user with that ID did not exist).
-/// If all requested additions were successful, the list will be empty.
+/// Add one or more availability rules to one or more users.
 ///
-/// # Syntax
+/// Returns the generated IDs of the newly created rules in the order they were provided.
+///
+/// If a provided user does not exist, those rules will not be created and that user will be missing from the returned dictionary.
+///
+/// # Signature
 /// ```py
 /// def add_rules(to_add: dict[
 ///   UserId,
@@ -472,32 +502,39 @@ impl From<&User> for (UserId, PyUser) {
 ///   }]
 /// ]) -> set[UserId];
 /// ```
-pub fn add_rules(to_add: UserMap<Vec<PyRule>>) -> Result<UserSet> {
+pub fn add_rules(to_add: UserMap<Vec<PyRule>>) -> Result<UserMap<Vec<RuleId>>> {
     let mut users = USERS.write();
     Ok(to_add
         .into_iter()
-        .filter_map(|(user, rules)| match users.get_mut(&user) {
-            Some(user) => {
-                user.availability.extend(rules.into_iter().map(From::from));
-                None
-            }
-            None => Some(user),
+        .filter_map(|(user_id, rules)| {
+            users.get_mut(&user_id).map(|user| {
+                let ids = RuleId::take(rules.len().try_into().unwrap());
+                user.availability.extend(
+                    ids.clone()
+                        .zip(rules)
+                        .map(Rule::from)
+                        .map(|rule| (rule.id, rule)),
+                );
+                (user_id, ids.collect())
+            })
         })
         .collect())
 }
 
 /// Insert one or more slots into the slot list.
 ///
+/// Returns the generated IDs of the newly created slots in the order they were provided.
+///
 /// Argument must be an array, even if only adding one.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def add_slots(list[{
 ///   'start': datetime,
 ///   'end':   datetime,        # must be >=`start`
 ///   'min_staff': int | None,  # cannot be negative; None is equivalent to 0
 ///   'name': str | None,
-/// }]) -> None;
+/// }]) -> list[SlotId];
 /// ```
 ///
 /// # Examples
@@ -509,22 +546,30 @@ pub fn add_rules(to_add: UserMap<Vec<PyRule>>) -> Result<UserSet> {
 ///   'min_staff': 3,
 /// }])
 /// ```
-pub fn add_slots(to_add: Vec<PySlot>) -> Result<()> {
-    SLOTS.write().extend(to_add.into_iter().map(Slot::from));
-    Ok(())
+pub fn add_slots(to_add: Vec<PySlot>) -> Result<Vec<SlotId>> {
+    let ids = SlotId::take(to_add.len().try_into().unwrap());
+    SLOTS.write().extend(
+        ids.clone()
+            .zip(to_add)
+            .map(Slot::from)
+            .map(|slot| (slot.id, slot)),
+    );
+    Ok(ids.collect())
 }
 
-/// Insert one or more tasks into the user table. Returns the generated IDs of the newly created tasks in the order they were provided.
+/// Insert one or more tasks into the user table.
+///
+/// Returns the generated IDs of the newly created tasks in the order they were provided.
 ///
 /// Argument must be an array, even if only adding one.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def add_tasks(to_add: list[{
 ///   'title': str,
 ///   'desc': str | None,
 ///   'deadline': datetime | None,
-///   'awaiting': list[TaskId] | None,
+///   'awaiting': set[TaskId] | None,
 /// }]) -> list[TaskId];
 /// ```
 ///
@@ -553,9 +598,7 @@ pub fn add_slots(to_add: Vec<PySlot>) -> Result<()> {
 ///
 /// **See also:** [`datetime`](https://docs.python.org/3/library/datetime.html)
 pub fn add_tasks(to_add: Vec<PyTask>) -> Result<Vec<TaskId>> {
-    let additional = to_add.len().try_into().unwrap();
-    let start = NEXT_TASK_ID.fetch_add(additional, Relaxed);
-    let ids = (start..start + additional).map(TaskId);
+    let ids = TaskId::take(to_add.len().try_into().unwrap());
     TASKS.write().extend(
         ids.clone()
             .zip(to_add)
@@ -565,11 +608,13 @@ pub fn add_tasks(to_add: Vec<PyTask>) -> Result<Vec<TaskId>> {
     Ok(ids.collect())
 }
 
-/// Insert one or more users into the user table. Returns the generated IDs of the newly created users in the order they were provided.
+/// Insert one or more users into the user table.
+///
+/// Returns the generated IDs of the newly created users in the order they were provided.
 ///
 /// Argument must be an array, even if only adding one.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def add_users(to_add: list[{'name': str}]) -> list[UserId];
 /// ```
@@ -583,9 +628,7 @@ pub fn add_tasks(to_add: Vec<PyTask>) -> Result<Vec<TaskId>> {
 /// proxy.add_users([{'name': "tom"}, {'name': "sally"}])
 /// ```
 pub fn add_users(to_add: Vec<PyUser>) -> Result<Vec<UserId>> {
-    let additional = to_add.len().try_into().unwrap();
-    let start = NEXT_USER_ID.fetch_add(additional, Relaxed);
-    let ids = (start..start + additional).map(UserId);
+    let ids = UserId::take(to_add.len().try_into().unwrap());
     USERS.write().extend(
         ids.clone()
             .zip(to_add)
@@ -595,13 +638,33 @@ pub fn add_users(to_add: Vec<PyUser>) -> Result<Vec<UserId>> {
     Ok(ids.collect())
 }
 
-/// Returns an array of all current availability rules associated with `user`.
+/// A filter for selecting [`Rule`]s from the backend database.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuleFilter {
+    /// A whitelist of the exact [`Rule::id`]s that should be included.
+    pub ids: Option<RuleSet>,
+
+    /// The least preference the [`Rule`] can require.
+    pub min_pref: Option<f32>,
+
+    /// The greatest preference the [`Rule`] can require.
+    pub max_pref: Option<f32>,
+}
+
+/// Returns an dictionary of all current availability rules associated with each user, filtered by the parameters.
 ///
-/// May produce a [404 Not Found](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404) error if `user` does not exist.
+/// Users that do not exist will be missing from the returned dictionary.
 ///
-/// # Syntax
+/// Each filter parameter is combined as "and" (tasks must satisfy *all* conditions to be included).
+/// Parameters that are [`None`] will be ignored.
+///
+/// # Signature
 /// ```py
-/// def get_rules(user: UserId) -> list[(
+/// def get_rules(filter: dict[UserId, {
+///     'ids': set[RuleId],
+///     'min_pref': float | None,
+///     'max_pref': float | None,  # must be >=`min_pref`
+/// }]) -> list[(
 ///   {
 ///     'include': list[range[datetime]],
 ///     'repeat': {
@@ -621,43 +684,76 @@ pub fn add_users(to_add: Vec<PyUser>) -> Result<Vec<UserId>> {
 ///   f32,
 /// )];
 /// ```
-pub fn get_rules(user: UserId) -> Result<Vec<PyRule>> {
-    match USERS.read().get(&user) {
-        Some(u) => Ok(u.availability.iter().map(From::from).collect()), // TODO: implement filtering
-        None => Err(Fault::new(
-            404,
-            format!("no user with the ID '{user}' exists"),
-        )),
-    }
+pub fn get_rules(filter: UserMap<RuleFilter>) -> Result<UserMap<RuleMap<PyRule>>> {
+    let users = USERS.read();
+    filter
+        .into_iter()
+        .flat_map(|(user_id, filter)| {
+            users.get(&user_id).map(|user| {
+                let RuleFilter {
+                    ids,
+                    min_pref,
+                    max_pref,
+                } = filter;
+                let ids = ids.as_ref();
+                Ok((
+                    user_id,
+                    user.availability
+                        .values()
+                        .filter(|rule| {
+                            min_pref.is_none_or(|x| rule.pref.0 >= x)
+                                && max_pref.is_none_or(|x| rule.pref.0 <= x)
+                                // note that None => "do not filter", which is distinct from {} => "never"
+                                && ids.is_none_or(|x| x.contains(&rule.id))
+                        })
+                        .map(From::from)
+                        .collect(),
+                ))
+            })
+        })
+        .collect()
 }
 
 /// A filter for selecting [`Slot`]s from the backend database.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SlotFilter {
+    /// A whitelist of the exact [`Slot::id`]s that should be included.
+    pub ids: Option<SlotSet>,
+
     /// The ealiest datetime the [`Slot`] can start at.
     pub starting_after: Option<DateTime<Utc>>,
+
     /// The latest datetime the [`Slot`] can start at.
     pub starting_before: Option<DateTime<Utc>>,
+
     /// The ealiest datetime the [`Slot`] can end at.
     pub ending_after: Option<DateTime<Utc>>,
+
     /// The latest datetime the [`Slot`] can end at.
     pub ending_before: Option<DateTime<Utc>>,
+
     /// The least staff the [`Slot`] can require (0 is equivalent to [`None`]).
     pub min_staff_min: Option<usize>,
+
     /// The greatest staff the [`Slot`] can require (0 is equivalent to [`None`]).
     pub min_staff_max: Option<usize>,
+
     /// A [`Pattern`] the [`Slot::name`] must [match](Pattern::is_match).
     pub name_pat: Option<Pattern>,
 }
 
 /// Returns an array of all current slots.
 ///
+/// Each filter parameter is combined as "and" (tasks must satisfy *all* conditions to be included).
+/// Parameters that are [`None`] will be ignored.
+///
 /// Patterns should use `^$` (match start followed immediately by end) to match against empty names,
 /// as an empty pattern will always match (the empty set is a subset of every set).
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def get_slots(filter: {
+///   'ids': set[SlotId] | None,
 ///   'starting_before': datetime | None,  # inclusive
 ///   'starting_after':  datetime | None,  # inclusive
 ///   'ending_before':   datetime | None,  # inclusive
@@ -672,8 +768,9 @@ pub struct SlotFilter {
 ///   'name': str | None,
 /// }];
 /// ```
-pub fn get_slots(filter: SlotFilter) -> Result<Vec<PySlot>> {
+pub fn get_slots(filter: SlotFilter) -> Result<SlotMap<PySlot>> {
     let SlotFilter {
+        ids,
         starting_before,
         starting_after,
         ending_before,
@@ -682,10 +779,11 @@ pub fn get_slots(filter: SlotFilter) -> Result<Vec<PySlot>> {
         min_staff_max,
         name_pat,
     } = filter;
+    let ids = ids.as_ref();
     let name_pat = name_pat.as_ref();
     Ok(SLOTS
         .read()
-        .iter()
+        .values()
         .filter(|slot| {
             starting_before.is_none_or(|x| slot.start <= x)
                 && starting_after.is_none_or(|x| slot.start >= x)
@@ -693,10 +791,11 @@ pub fn get_slots(filter: SlotFilter) -> Result<Vec<PySlot>> {
                 && ending_after.is_none_or(|x| slot.end >= x)
                 && min_staff_min.is_none_or(|x| slot.min_staff.map_or(0, NonZeroUsize::get) >= x)
                 && min_staff_max.is_none_or(|x| slot.min_staff.map_or(0, NonZeroUsize::get) <= x)
+                // note that None => "do not filter", which is distinct from {} => "never"
+                && ids.is_none_or(|x| x.contains(&slot.id))
                 // use "^$" to match against empty names
                 && name_pat.is_none_or(|x| x.is_match(&slot.name))
         })
-        .cloned()
         .map(From::from)
         .collect())
 }
@@ -706,12 +805,16 @@ pub fn get_slots(filter: SlotFilter) -> Result<Vec<PySlot>> {
 pub struct TaskFilter {
     /// A whitelist of the exact [`Task::id`]s that should be included.
     pub ids: Option<TaskSet>,
+
     /// A [`Pattern`] the [`Task::title`] must [match](Pattern::is_match).
     pub title_pat: Option<Pattern>,
+
     /// A [`Pattern`] the [`Task::desc`] must [match](Pattern::is_match).
     pub desc_pat: Option<Pattern>,
+
     /// The ealiest datetime the [`Task::deadline`] can be.
     pub deadline_after: Option<DateTime<Utc>>,
+
     /// The latest datetime the [`Task::deadline`] can be.
     pub deadline_before: Option<DateTime<Utc>>,
 }
@@ -721,7 +824,7 @@ pub struct TaskFilter {
 /// Each filter parameter is combined as "and" (tasks must satisfy *all* conditions to be included).
 /// Parameters that are [`None`] will be ignored.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def get_tasks(filter: {
 ///   'ids': set[TaskId] | None,
@@ -734,7 +837,7 @@ pub struct TaskFilter {
 ///     'title': str,
 ///     'desc':  str | None,
 ///     'deadline': datetime | None,
-///     'awaiting': list[TaskId] | None,
+///     'awaiting': set[TaskId] | None,
 ///   }
 /// ];
 /// ```
@@ -773,6 +876,7 @@ pub fn get_tasks(filter: TaskFilter) -> Result<TaskMap<PyTask>> {
 pub struct UserFilter {
     /// A whitelist of the exact [`User::id`]s that should be included.
     pub ids: Option<Vec<UserId>>,
+
     /// A [`Pattern`] the [`User::name`] must [match](Pattern::is_match).
     pub name_pat: Option<Pattern>,
 }
@@ -782,7 +886,7 @@ pub struct UserFilter {
 /// Each filter parameter is combined as "and" (users must satisfy *all* conditions to be included).
 /// Parameters that are `None` will be ignored.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def get_users(filter: {
 ///   'ids': list[UserId] | None,
@@ -806,46 +910,349 @@ pub fn get_users(filter: UserFilter) -> Result<UserMap<PyUser>> {
         .collect())
 }
 
-/// Removes one or more rules from one or more users, returning a list of any user IDs that do not exist and therefore could not have any rules popped.
-/// If all requested removals were successful, the list will be empty.
+/// A change to a set ([`HashSet`](std::collections::HashSet) or [`BTreeSet`](std::collections::BTreeSet)).
+#[derive(Debug, Clone, Deserialize)]
+pub struct KeySetDelta<K: Eq + std::hash::Hash> {
+    /// Key(s) to be removed from the set.
+    #[serde(default = "Default::default")]
+    pub delete: FxHashSet<K>,
+
+    /// Key(s) to be added to the set.
+    #[serde(default = "Default::default")]
+    pub create: Vec<K>,
+}
+
+impl<K: Eq + std::hash::Hash> Default for KeySetDelta<K> {
+    fn default() -> Self {
+        Self {
+            delete: Default::default(),
+            create: Default::default(),
+        }
+    }
+}
+
+impl<K: Eq + std::hash::Hash> KeySetDelta<K> {
+    fn apply(&mut self, target: &mut FxHashSet<K>) {
+        target.retain(|k| !self.delete.remove(k));
+        target.extend(std::mem::take(&mut self.create));
+    }
+}
+
+/// A change to a collection that cannot create new elements, only remove or modify.
+#[derive(Debug, Clone, Deserialize)]
+pub struct NoGrowSetDelta<K: Eq + std::hash::Hash, V> {
+    /// Key(s) to be removed from the collection.
+    #[serde(default = "Default::default")]
+    pub delete: FxHashSet<K>,
+
+    /// Key(s) in the collection to be replaced with new value(s).
+    #[serde(default = "Default::default")]
+    pub update: FxHashMap<K, V>,
+}
+
+impl<K: Eq + std::hash::Hash, V> Default for NoGrowSetDelta<K, V> {
+    fn default() -> Self {
+        Self {
+            delete: Default::default(),
+            update: Default::default(),
+        }
+    }
+}
+
+/// A change to a collection.
+#[derive(Debug, Clone, Deserialize)]
+pub struct SetDelta<K: Eq + std::hash::Hash, V, U = (K, V)> {
+    /// Key(s) to be removed from the collection.
+    #[serde(default = "Default::default")]
+    pub delete: FxHashSet<K>,
+
+    /// Value(s) to be added to the collection.
+    #[serde(default = "Default::default")]
+    pub create: Vec<U>,
+
+    /// Key(s) in the collection to be replaced with new value(s).
+    #[serde(default = "Default::default")]
+    pub update: FxHashMap<K, V>,
+}
+
+impl<K: Eq + std::hash::Hash, V, U> Default for SetDelta<K, V, U> {
+    fn default() -> Self {
+        Self {
+            delete: Default::default(),
+            create: Default::default(),
+            update: Default::default(),
+        }
+    }
+}
+
+impl<K: Eq + std::hash::Hash, V> SetDelta<K, V, (K, V)> {
+    fn apply(&mut self, target: &mut FxHashMap<K, V>) {
+        target.retain(|k, _| !self.delete.remove(k));
+        for (k, v) in target.iter_mut() {
+            self.update.remove(k).apply(v);
+        }
+        target.extend(std::mem::take(&mut self.create));
+    }
+}
+
+/// A [`SetDelta`] for sets where the key is auto-generated and thus left unspecified for [`SetDelta::create`] mode.
+/// Example: pushing to a [`Vec`].
+pub type AutoIdSetDelta<K, V> = SetDelta<K, V, V>;
+
+/// [`None`] to ignore and keep existing value.
+/// [`Some`] to replace the value.
+pub type Update<T> = Option<T>;
+
+trait ApplyUpdate {
+    type Target;
+
+    fn apply(self, target: &mut Self::Target);
+}
+
+impl<T> ApplyUpdate for Update<T> {
+    type Target = T;
+
+    #[inline]
+    fn apply(self, target: &mut T) {
+        if let Some(new_value) = self {
+            *target = new_value;
+        }
+    }
+}
+
+/// A mutation request for a [`Rule`].
+#[derive(Debug, Clone, Deserialize)]
+pub struct RuleDelta {
+    /// See [`Rule::include`]
+    #[serde(default)]
+    pub include: AutoIdSetDelta<usize, TimeInterval>,
+
+    /// See [`Rule::rep`]
+    #[serde(default)]
+    pub rep: Update<Option<Repetition>>,
+
+    /// See [`Rule::pref`]
+    #[serde(default)]
+    pub pref: Update<Preference>,
+}
+
+/// A mutation request for a [`Slot`].
+#[derive(Debug, Clone, Deserialize)]
+pub struct SlotDelta {
+    /// See [`Slot::interval`]
+    #[serde(default)]
+    pub interval: Update<TimeInterval>,
+
+    /// See [`Slot::min_staff`]
+    #[serde(default)]
+    pub min_staff: Update<Option<NonZeroUsize>>,
+
+    /// See [`Slot::name`]
+    #[serde(default)]
+    pub name: Update<String>,
+}
+
+/// Mutate [`Slot`]s.
 ///
-/// Argument must be an array, even if only removing one.
-///
-/// # Syntax
-/// ```py
-/// def pop_rules(to_pop: dict[UserId, list[ TBD ]]) -> set[UserId];
-/// ```
-pub fn pop_rules(to_pop: UserMap<Vec<()>>) -> Result<UserSet> {
-    let mut users = USERS.write();
-    Ok(to_pop
+/// Returns a collection of all failed changes.
+/// If all requested changes were successful, the list will be empty.
+pub fn mut_slots(delta: SlotMap<SlotDelta>) -> Result<SlotSet> {
+    let mut slots = SLOTS.write();
+    Ok(delta
         .into_iter()
-        .filter_map(|(user, _rules)| match users.get_mut(&user) {
-            Some(user) => {
-                user.availability.retain(|_rule| todo!());
+        .filter_map(|(slot_id, delta)| {
+            if let Some(slot) = slots.get_mut(&slot_id) {
+                delta.interval.apply(&mut slot.interval);
+                delta.min_staff.apply(&mut slot.min_staff);
+                delta.name.apply(&mut slot.name);
                 None
+            } else {
+                Some(slot_id)
             }
-            None => Some(user),
         })
         .collect())
 }
 
-/// Removes one or more slots.
-///
-/// Argument must be an array, even if only removing one.
-///
-/// # Syntax
-///
-/// TBD
-pub fn pop_slots(_to_pop: ()) -> Result<()> {
-    todo!()
+/// A mutation request for a [`Task`].
+#[derive(Debug, Clone, Deserialize)]
+pub struct TaskDelta {
+    /// See [`Task::title`]
+    #[serde(default)]
+    pub title: Update<String>,
+
+    /// See [`Task::desc`]
+    #[serde(default)]
+    pub desc: Update<String>,
+
+    /// See [`Task::skills`]
+    #[serde(default)]
+    pub skills: SetDelta<SkillId, ProficiencyReq>,
+
+    /// See [`Task::deadline`]
+    #[serde(default)]
+    pub deadline: Update<Option<DateTime<Utc>>>,
+
+    /// See [`Task::deps`]
+    #[serde(default)]
+    pub deps: KeySetDelta<TaskId>,
 }
 
-/// Removes tasks by ID, returning a list of any IDs that failed to be removed (ex: task with that ID did not exist).
+/// Mutate [`Task`]s.
+///
+/// Returns a collection of all failed changes.
+/// If all requested changes were successful, the list will be empty.
+pub fn mut_tasks(delta: TaskMap<TaskDelta>) -> Result<TaskSet> {
+    let mut tasks = TASKS.write();
+    Ok(delta
+        .into_iter()
+        .filter_map(|(task_id, mut delta)| {
+            if let Some(task) = tasks.get_mut(&task_id) {
+                delta.title.apply(&mut task.title);
+                delta.desc.apply(&mut task.desc);
+                delta.skills.apply(&mut task.skills);
+                delta.deadline.apply(&mut task.deadline);
+                delta.deps.apply(&mut task.deps);
+                None
+            } else {
+                Some(task_id)
+            }
+        })
+        .collect())
+}
+
+/// A mutation request for a [`User`].
+#[derive(Debug, Clone, Deserialize)]
+pub struct UserDelta {
+    /// See [`User::name`]
+    #[serde(default)]
+    pub name: Update<String>,
+
+    /// Cannot grow. Use [`add_rules`] to create new rules.
+    ///
+    /// **Reasoning:**
+    /// Newly created [`Rule`]s would become inaccessible because
+    /// successful items do not have their IDs returned by `mut_` methods.
+    ///
+    /// See [`User::availability`]
+    #[serde(default)]
+    pub availability: NoGrowSetDelta<RuleId, RuleDelta>,
+
+    /// See [`User::user_prefs`]
+    #[serde(default)]
+    pub user_prefs: SetDelta<UserId, Preference>,
+
+    /// See [`User::skills`]
+    #[serde(default)]
+    pub skills: SetDelta<SkillId, Proficiency>,
+}
+
+/// Mutate [`User`]s.
+///
+/// Returns a collection of all failed changes.
+/// If all requested changes were successful, the list will be empty.
+pub fn mut_users(delta: UserMap<UserDelta>) -> Result<UserMap<RuleSet>> {
+    let mut users = USERS.write();
+    Ok(delta
+        .into_iter()
+        .filter_map(|(user_id, mut delta)| {
+            if let Some(user) = users.get_mut(&user_id) {
+                delta.name.apply(&mut user.name);
+                {
+                    let NoGrowSetDelta { delete, update } = &mut delta.availability;
+                    user.availability.retain(|k, _| !delete.remove(k));
+                    for (k, rule) in &mut user.availability {
+                        if let Some(mut delta) = update.remove(k) {
+                            {
+                                let mut it = 0..;
+                                rule.include.retain(|v| {
+                                    let i = it.next().unwrap();
+                                    if delta.include.delete.remove(&i) {
+                                        false
+                                    } else {
+                                        // update has to be included in retain because
+                                        // indices will change when removals happen
+                                        if let Some(replacement) = delta.include.update.remove(&i) {
+                                            *v = replacement;
+                                        }
+                                        true
+                                    }
+                                });
+                                rule.include.extend(delta.include.create);
+                            }
+                            delta.rep.apply(&mut rule.rep);
+                            delta.pref.apply(&mut rule.pref);
+                        }
+                    }
+                }
+                delta.user_prefs.apply(&mut user.user_prefs);
+                delta.skills.apply(&mut user.skills);
+
+                if delta.availability.delete.is_empty() && delta.availability.update.is_empty() {
+                    return None;
+                }
+            }
+            Some((
+                user_id,
+                delta
+                    .availability
+                    .delete
+                    .into_iter()
+                    .chain(delta.availability.update.into_keys())
+                    .collect(),
+            ))
+        })
+        .collect())
+}
+
+/// Removes one or more rules from one or more users.
+///
+/// Returns a collection of all failed removals.
 /// If all requested removals were successful, the list will be empty.
 ///
 /// Argument must be an array, even if only removing one.
 ///
-/// # Syntax
+/// # Signature
+/// ```py
+/// def pop_rules(to_pop: dict[UserId, set[RuleId]]) -> dict[UserId, set[RuleId]];
+/// ```
+pub fn pop_rules(to_pop: UserMap<RuleSet>) -> Result<UserMap<RuleSet>> {
+    let mut users = USERS.write();
+    Ok(to_pop
+        .into_iter()
+        .map(|(user, mut rules)| {
+            if let Some(user) = users.get_mut(&user) {
+                user.availability.retain(|id, _| !rules.remove(id));
+            }
+            (user, rules)
+        })
+        .filter(|(_user, rules)| !rules.is_empty())
+        .collect())
+}
+
+/// Removes slots by ID.
+///
+/// Returns a list of any IDs that failed to be removed (ex: slot with that ID did not exist).
+/// If all requested removals were successful, the list will be empty.
+///
+/// Argument must be an array, even if only removing one.
+///
+/// # Signature
+/// ```py
+/// def pop_slots(to_pop: set[SlotId]) -> set[SlotId];
+/// ```
+pub fn pop_slots(mut to_pop: SlotSet) -> Result<SlotSet> {
+    SLOTS.write().retain(|id, _| !to_pop.remove(id));
+    Ok(to_pop)
+}
+
+/// Removes tasks by ID.
+///
+/// Returns a list of any IDs that failed to be removed (ex: task with that ID did not exist).
+/// If all requested removals were successful, the list will be empty.
+///
+/// Argument must be an array, even if only removing one.
+///
+/// # Signature
 /// ```py
 /// def pop_tasks(to_pop: set[TaskId]) -> set[TaskId];
 /// ```
@@ -854,12 +1261,14 @@ pub fn pop_tasks(mut to_pop: TaskSet) -> Result<TaskSet> {
     Ok(to_pop)
 }
 
-/// Removes users by ID, returning a list of any IDs that failed to be removed (ex: user with that ID did not exist).
+/// Removes users by ID.
+///
+/// Returns a list of any IDs that failed to be removed (ex: user with that ID did not exist).
 /// If all requested removals were successful, the list will be empty.
 ///
 /// Argument must be an array, even if only adding one.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def pop_users(to_pop: set[UserId]) -> set[UserId];
 /// ```
@@ -868,9 +1277,138 @@ pub fn pop_users(mut to_pop: UserSet) -> Result<UserSet> {
     Ok(to_pop)
 }
 
+/// Save all current [`Slot`] data to a file stored at `path`.
+pub fn save_slots(path: PathBuf) -> Result<()> {
+    csv::WriterBuilder::default()
+        .from_path(path)
+        .and_then(|mut w| w.serialize(SLOTS.read().values().collect::<Vec<_>>()))
+        .map_err(|e| Fault::new(500, e.to_string()))
+}
+
+/// Save all current [`Task`] data to a file stored at `path`.
+pub fn save_tasks(path: PathBuf) -> Result<()> {
+    csv::WriterBuilder::default()
+        .from_path(path)
+        .and_then(|mut w| w.serialize(TASKS.read().values().collect::<Vec<_>>()))
+        .map_err(|e| Fault::new(500, e.to_string()))
+}
+
+/// Save all current [`User`] data to a file stored at `path`.
+///
+/// Also saves all [`Rule`]s.
+pub fn save_users(path: PathBuf) -> Result<()> {
+    csv::WriterBuilder::default()
+        .from_path(path)
+        .and_then(|mut w| w.serialize(USERS.read().values().collect::<Vec<_>>()))
+        .map_err(|e| Fault::new(500, e.to_string()))
+}
+
+/// Load all current [`Slot`] data to a file stored at `path`.
+///
+/// **WARNING:** Current data will be overwitten without saving!
+pub fn load_slots(path: PathBuf) -> Result<()> {
+    let mut next_id = 0;
+    **SLOTS.write() = csv::ReaderBuilder::default()
+        .from_path(path)
+        .and_then(|r| {
+            r.into_deserialize::<Slot>()
+                .map(|x| {
+                    x.map(|slot| {
+                        next_id = next_id.max(slot.id.0 + 1);
+                        (slot.id, slot)
+                    })
+                })
+                .collect()
+        })
+        .map_err(|e| Fault::new(500, e.to_string()))?;
+    SlotId::store(next_id);
+    Ok(())
+}
+
+/// Load all current [`Task`] data to a file stored at `path`.
+///
+/// **WARNING:** Current data will be overwitten without saving!
+pub fn load_tasks(path: PathBuf) -> Result<()> {
+    let mut next_id = 0;
+    **TASKS.write() = csv::ReaderBuilder::default()
+        .from_path(path)
+        .and_then(|r| {
+            r.into_deserialize::<Task>()
+                .map(|x| {
+                    x.map(|task| {
+                        next_id = next_id.max(task.id.0 + 1);
+                        (task.id, task)
+                    })
+                })
+                .collect()
+        })
+        .map_err(|e| Fault::new(500, e.to_string()))?;
+    TaskId::store(next_id);
+    Ok(())
+}
+
+/// Load all current [`User`] data to a file stored at `path`.
+///
+/// Also loads all [`Rule`]s.
+///
+/// **WARNING:** Current data will be overwitten without saving!
+pub fn load_users(path: PathBuf) -> Result<()> {
+    let mut next_id = 0;
+    let mut rule_id = 0;
+    **USERS.write() = csv::ReaderBuilder::default()
+        .from_path(path)
+        .and_then(|r| {
+            r.into_deserialize::<User>()
+                .map(|x| {
+                    x.map(|user| {
+                        next_id = next_id.max(user.id.0 + 1);
+                        if let Some(max) = user.availability.keys().map(|id| id.0).max() {
+                            rule_id = max.max(rule_id);
+                        }
+                        (user.id, user)
+                    })
+                })
+                .collect()
+        })
+        .map_err(|e| Fault::new(500, e.to_string()))?;
+    UserId::store(next_id);
+    RuleId::store(rule_id);
+    Ok(())
+}
+
+/// Clear all current [`Slot`] data.
+///
+/// **WARNING:** Current data will not be saved!
+pub fn wipe_slots((): ()) -> Result<()> {
+    SLOTS.write().clear();
+    SlotId::store(0);
+    Ok(())
+}
+
+/// Clear all current [`Task`] data.
+///
+/// **WARNING:** Current data will not be saved!
+pub fn wipe_tasks((): ()) -> Result<()> {
+    TASKS.write().clear();
+    TaskId::store(0);
+    Ok(())
+}
+
+/// Clear all current [`User`] data.
+///
+/// Also clears all [`Rule`]s.
+///
+/// **WARNING:** Current data will not be saved!
+pub fn wipe_users((): ()) -> Result<()> {
+    USERS.write().clear();
+    UserId::store(0);
+    RuleId::store(0);
+    Ok(())
+}
+
 /// Close the server after completing all ongoing tasks.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def quit(_: {}) -> None;
 /// ```
@@ -902,10 +1440,27 @@ pub(crate) fn register(server: &mut Server) {
     server.register_simple("get_tasks", get_tasks);
     server.register_simple("get_users", get_users);
 
+    // rules can be mutated through `availability` field of `mut_users`
+    server.register_simple("mut_slots", mut_slots);
+    server.register_simple("mut_tasks", mut_tasks);
+    server.register_simple("mut_users", mut_users);
+
     server.register_simple("pop_rules", pop_rules);
     server.register_simple("pop_slots", pop_slots);
     server.register_simple("pop_tasks", pop_tasks);
     server.register_simple("pop_users", pop_users);
+
+    server.register_simple("save_slots", save_slots);
+    server.register_simple("save_tasks", save_tasks);
+    server.register_simple("save_users", save_users);
+
+    server.register_simple("load_slots", load_slots);
+    server.register_simple("load_tasks", load_tasks);
+    server.register_simple("load_users", load_users);
+
+    server.register_simple("wipe_slots", wipe_slots);
+    server.register_simple("wipe_tasks", wipe_tasks);
+    server.register_simple("wipe_users", wipe_users);
 
     server.register_simple("quit", quit);
 }

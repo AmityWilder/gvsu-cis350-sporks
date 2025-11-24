@@ -5,6 +5,8 @@ use miette::Result;
 use serde::{Deserialize, Serialize, de::Visitor};
 use std::num::NonZeroUsize;
 
+super::id_type!(impl Id<u128> for Slot as 's');
+
 /// A timerange, mainly intended for timeslots.
 ///
 /// # [Ordering](`Ord`)
@@ -187,6 +189,9 @@ impl TimeInterval {
 /// (See [`TimeInterval` ordering](TimeInterval#ordering)).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Slot {
+    /// Duplicate of the slot's ID.
+    pub id: SlotId,
+
     /// The time period the slot refers to.
     pub interval: TimeInterval,
 

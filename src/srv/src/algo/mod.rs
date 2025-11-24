@@ -91,14 +91,14 @@ pub fn dep_order<'a>(graph: &DepGraph<'a>) -> impl Iterator<Item = &'a Task> + C
 
 /// A collection of time slots along with the tasks and users assigned to them.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Schedule(pub Vec<(Slot, /* TaskSet, */ UserSet)>);
+pub struct Schedule(pub SlotMap</* (TaskSet, */ UserSet /* ) */>);
 
 impl Schedule {
     /// Generate a schedule based on the provided requirements.
     ///
     /// See [module-level documentation](self) for more details.
     pub fn generate(
-        slots: &[Slot],
+        slots: &SlotMap,
         tasks: &TaskMap,
         users: &UserMap,
     ) -> Result<Self, SchedulingError> {
@@ -107,14 +107,14 @@ impl Schedule {
 
         let mut _slot_candidates = slots
             .iter()
-            .map(|slot| {
+            .map(|(slot_id, slot)| {
                 let interval = &slot.interval;
                 let candidates = users
                     .values()
                     .filter_map(|u| {
                         let mut it = u
                             .availability
-                            .iter()
+                            .values()
                             .filter(|r| r.pref > Preference::NEG_INFINITY && r.contains(interval))
                             .peekable();
 
@@ -124,19 +124,19 @@ impl Schedule {
                     })
                     .collect();
 
-                (slot, candidates)
+                (*slot_id, candidates)
             })
-            .collect::<Vec<(&Slot, UserMap<BTreeMap<Preference, &Rule>>)>>();
+            .collect::<SlotMap<UserMap<BTreeMap<Preference, &Rule>>>>();
 
         slots
             .iter()
-            .map(|slot| {
+            .map(|(slot_id, slot)| {
                 let mut candidates = users
                     .values()
                     .filter_map(|u| {
                         let mut it = u
                             .availability
-                            .iter()
+                            .values()
                             .filter(|r| {
                                 r.pref > Preference::NEG_INFINITY && r.contains(&slot.interval)
                             })
@@ -191,7 +191,7 @@ impl Schedule {
                     staff
                 };
 
-                Ok((slot.clone(), staff))
+                Ok((*slot_id, staff))
             })
             .collect::<Result<_, _>>()
             .map(Schedule)
@@ -251,19 +251,19 @@ mod scheduler_tests {
     fn test1() {
         let users = users! {
             4578: "bob" {
-                4/12/2025 @ 6:30 - 6/12/2025 @ 7:30 | 1.0,
+                0: 4/12/2025 @ 6:30 - 6/12/2025 @ 7:30 | 1.0,
             },
             4753: "lisa" {
-                4/12/2025 @ 5:30 - 6/12/2025 @ 6:30 | 1.0,
+                1: 4/12/2025 @ 5:30 - 6/12/2025 @ 6:30 | 1.0,
             },
             2773: "jones" {
-                4/12/2025 @ 5:30 - 6/12/2025 @ 7:30 | 1.0,
+                2: 4/12/2025 @ 5:30 - 6/12/2025 @ 7:30 | 1.0,
             },
         };
 
         let slots = slots! {
-            4/12/2025 @ 5:30 - 6/12/2025 @ 6:30 [2] | "a",
-            4/12/2025 @ 6:30 - 6/12/2025 @ 7:30 [2] | "b",
+            0: 4/12/2025 @ 5:30 - 6/12/2025 @ 6:30 [2] | "a",
+            1: 4/12/2025 @ 6:30 - 6/12/2025 @ 7:30 [2] | "b",
         };
 
         let schedule = Schedule::generate(&slots, &Default::default(), &users).unwrap();
@@ -272,7 +272,7 @@ mod scheduler_tests {
                 .0
                 .iter()
                 .map(|(slot, staff)| (
-                    slot.name.as_str(),
+                    slots[slot].name.as_str(),
                     staff
                         .iter()
                         .map(|id| users[id].name.as_str())

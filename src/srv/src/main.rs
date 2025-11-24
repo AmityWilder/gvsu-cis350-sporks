@@ -2,6 +2,7 @@
 //!
 //! A management scheduling application (generator end; executed by backend)
 
+#![feature(integer_atomics)]
 #![deny(
     clippy::undocumented_unsafe_blocks,
     clippy::missing_safety_doc,
@@ -27,7 +28,7 @@
 
 use crate::{
     data::*,
-    integration::{EXIT_REQUESTED, NEXT_TASK_ID, NEXT_USER_ID, SLOTS, TASKS, USERS},
+    integration::{EXIT_REQUESTED, SLOTS, TASKS, USERS},
 };
 use clap::{
     Parser,
@@ -171,13 +172,14 @@ fn main() -> Result<()> {
         }
     }
 
-    let slots = try_load::<Vec<Slot>>(&slots, "slot")?;
+    let slots = try_load::<SlotMap>(&slots, "slot")?;
     let tasks = try_load::<TaskMap>(&tasks, "task")?;
     let users = try_load::<UserMap>(&users, "user")?;
 
-    NEXT_TASK_ID.store(tasks.keys().map(|k| k.0 + 1).max().unwrap_or(0), Relaxed);
-    NEXT_USER_ID.store(users.keys().map(|k| k.0 + 1).max().unwrap_or(0), Relaxed);
-    *SLOTS.write() = slots;
+    TaskId::store(tasks.keys().map(|k| k.0 + 1).max().unwrap_or(0));
+    UserId::store(users.keys().map(|k| k.0 + 1).max().unwrap_or(0));
+    SlotId::store(slots.keys().map(|k| k.0 + 1).max().unwrap_or(0));
+    **SLOTS.write() = slots;
     **TASKS.write() = tasks;
     **USERS.write() = users;
 

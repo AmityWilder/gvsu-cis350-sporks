@@ -5,15 +5,7 @@ use chrono::prelude::*;
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 
-/// Code uniquely identifying a task
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct TaskId(pub u64);
-
-impl std::fmt::Display for TaskId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "t.{:x}", self.0)
-    }
-}
+super::id_type!(impl Id<u64> for Task as 't');
 
 /// Proficiency requirements for a skill on a [`Task`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -97,9 +89,3 @@ pub struct Task {
     /// Dependencies - [`Task`]s that must be completed before this one can be scheduled (estimated by deadlines).
     pub deps: FxHashSet<TaskId>,
 }
-
-/// A dictionary associating [`TaskId`]s with `T`.
-pub type TaskMap<T = Task> = FxHashMap<TaskId, T>;
-
-/// A set of [`TaskId`]s.
-pub type TaskSet = FxHashSet<TaskId>;
