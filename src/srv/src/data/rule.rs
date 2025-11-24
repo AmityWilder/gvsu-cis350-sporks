@@ -5,7 +5,7 @@ use chrono::{DateTime, Days, Months, TimeDelta, Utc};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-super::id_type!(impl Id<u64> for Rule as 'r');
+super::id_type!(impl Id<u128> for Rule as 'r');
 
 /// Once every `n` units. Fields are added together.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -84,8 +84,11 @@ impl Repetition {
 /// Ex:
 /// - "available every Monday 3pm-7pm"
 /// - "never available on Fridays"
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Rule {
+    /// Duplicate of the rule's ID.
+    pub id: RuleId,
+
     /// The specific intervals this rule involves, before repeating.
     pub include: SmallVec<[TimeInterval; 1]>,
 
@@ -94,17 +97,6 @@ pub struct Rule {
 
     /// How strongly to enforce this rule.
     pub pref: Preference,
-}
-
-impl FromIterator<TimeInterval> for Rule {
-    #[inline]
-    fn from_iter<T: IntoIterator<Item = TimeInterval>>(iter: T) -> Self {
-        Self {
-            include: SmallVec::from_iter(iter),
-            rep: None,
-            pref: Preference(0.0),
-        }
-    }
 }
 
 impl Rule {
@@ -136,17 +128,11 @@ impl Rule {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::time_interval;
-    use smallvec::smallvec;
+    use crate::{rule_lit, time_interval};
 
     #[test]
     fn test_one_include_no_rep() {
-        let rule = Rule {
-            include: smallvec![time_interval! { 4/5/2025 - 5/5/2025 }],
-            rep: None,
-            pref: Preference(0.0),
-        };
+        let rule = rule_lit! { 0: 4/5/2025 - 5/5/2025 | 0.0 };
 
         assert!(
             rule.contains(&time_interval! { 4/5/2025 - 5/5/2025 }),
@@ -182,33 +168,21 @@ mod tests {
 
     #[test]
     fn test_multiple_include_no_rep() {
-        let rule = Rule {
-            include: smallvec![time_interval! { 4/5/2025 - 5/5/2025 }],
-            rep: None,
-            pref: Preference(0.0),
-        };
+        let rule = rule_lit! { 0: 4/5/2025 - 5/5/2025 | 0.0 };
 
         assert!(rule.contains(&time_interval! { 4/5/2025 - 5/5/2025 }));
     }
 
     #[test]
     fn test_one_include_some_rep() {
-        let rule = Rule {
-            include: smallvec![time_interval! { 4/5/2025 - 5/5/2025 }],
-            rep: None,
-            pref: Preference(0.0),
-        };
+        let rule = rule_lit! { 0: 4/5/2025 - 5/5/2025 | 0.0 };
 
         assert!(rule.contains(&time_interval! { 4/5/2025 - 5/5/2025 }));
     }
 
     #[test]
     fn test_multiple_include_some_rep() {
-        let rule = Rule {
-            include: smallvec![time_interval! { 4/5/2025 - 5/5/2025 }],
-            rep: None,
-            pref: Preference(0.0),
-        };
+        let rule = rule_lit! { 0: 4/5/2025 - 5/5/2025 | 0.0 };
 
         assert!(rule.contains(&time_interval! { 4/5/2025 - 5/5/2025 }));
     }

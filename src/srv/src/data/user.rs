@@ -1,8 +1,8 @@
 //! See [`User`]
 
 use crate::data::{
+    RuleMap,
     pref::Preference,
-    rule::Rule,
     skill::{Proficiency, SkillMap},
 };
 use serde::{Deserialize, Serialize};
@@ -20,7 +20,7 @@ pub struct User {
     pub name: String,
 
     /// Preferences regarding times the user can or can't be scheduled.
-    pub availability: Vec<Rule>,
+    pub availability: RuleMap,
 
     /// Preference towards sharing slots with other users.
     ///

@@ -238,15 +238,16 @@ pub struct PyRule {
     pub preference: f32,
 }
 
-impl From<PyRule> for Rule {
+impl From<(RuleId, PyRule)> for Rule {
     #[inline]
-    fn from(value: PyRule) -> Self {
+    fn from((id, value): (RuleId, PyRule)) -> Self {
         let PyRule {
             include,
             repeat,
             preference,
         } = value;
         Self {
+            id,
             include,
             rep: repeat.map(From::from),
             pref: Preference(preference),
@@ -254,35 +255,43 @@ impl From<PyRule> for Rule {
     }
 }
 
-impl From<Rule> for PyRule {
+impl From<Rule> for (RuleId, PyRule) {
     #[inline]
     fn from(value: Rule) -> Self {
         let Rule {
+            id,
             include,
             rep,
             pref: Preference(preference),
         } = value;
-        Self {
-            include,
-            repeat: rep.map(From::from),
-            preference,
-        }
+        (
+            id,
+            PyRule {
+                include,
+                repeat: rep.map(From::from),
+                preference,
+            },
+        )
     }
 }
 
-impl From<&Rule> for PyRule {
+impl From<&Rule> for (RuleId, PyRule) {
     #[inline]
     fn from(value: &Rule) -> Self {
         let Rule {
+            id,
             include,
             rep,
             pref: Preference(preference),
         } = value;
-        Self {
-            include: include.clone(),
-            repeat: rep.as_ref().cloned().map(From::from),
-            preference: *preference,
-        }
+        (
+            *id,
+            PyRule {
+                include: include.clone(),
+                repeat: rep.as_ref().cloned().map(From::from),
+                preference: *preference,
+            },
+        )
     }
 }
 
@@ -442,7 +451,7 @@ impl From<(UserId, PyUser)> for User {
         User {
             id,
             name,
-            availability: Vec::new(),
+            availability: RuleMap::default(),
             user_prefs: UserMap::default(),
             skills: SkillMap::default(),
         }
@@ -465,8 +474,9 @@ impl From<&User> for (UserId, PyUser) {
     }
 }
 
-/// Add one or more availability rules to one or more users, returning a list of any IDs that failed to be modified (ex: user with that ID did not exist).
-/// If all requested additions were successful, the list will be empty.
+/// Add one or more availability rules to one or more users.
+/// Returns the generated IDs of the newly created rules in the order they were provided.
+/// If a provided user does not exist, those rules will not be created and that user will be missing from the returned dictionary.
 ///
 /// # Syntax
 /// ```py
@@ -479,16 +489,21 @@ impl From<&User> for (UserId, PyUser) {
 ///   }]
 /// ]) -> set[UserId];
 /// ```
-pub fn add_rules(to_add: UserMap<Vec<PyRule>>) -> Result<UserSet> {
+pub fn add_rules(to_add: UserMap<Vec<PyRule>>) -> Result<UserMap<Vec<RuleId>>> {
     let mut users = USERS.write();
     Ok(to_add
         .into_iter()
-        .filter_map(|(user, rules)| match users.get_mut(&user) {
-            Some(user) => {
-                user.availability.extend(rules.into_iter().map(From::from));
-                None
-            }
-            None => Some(user),
+        .filter_map(|(user_id, rules)| {
+            users.get_mut(&user_id).map(|user| {
+                let ids = RuleId::take(rules.len().try_into().unwrap());
+                user.availability.extend(
+                    ids.clone()
+                        .zip(rules)
+                        .map(Rule::from)
+                        .map(|rule| (rule.id, rule)),
+                );
+                (user_id, ids.collect())
+            })
         })
         .collect())
 }
@@ -607,13 +622,22 @@ pub fn add_users(to_add: Vec<PyUser>) -> Result<Vec<UserId>> {
     Ok(ids.collect())
 }
 
-/// Returns an array of all current availability rules associated with `user`.
+/// A filter for selecting [`Rule`]s from the backend database.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuleFilter {
+    /// A whitelist of the exact [`Rule::id`]s that should be included.
+    pub ids: Option<RuleSet>,
+}
+
+/// Returns an dictionary of all current availability rules associated with each user, filtered by the parameters.
+/// Users that do not exist will be missing from the returned dictionary.
 ///
-/// May produce a [404 Not Found](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404) error if `user` does not exist.
+/// Each filter parameter is combined as "and" (tasks must satisfy *all* conditions to be included).
+/// Parameters that are [`None`] will be ignored.
 ///
 /// # Syntax
 /// ```py
-/// def get_rules(user: UserId) -> list[(
+/// def get_rules(filter: dict[UserId, TODO]) -> list[(
 ///   {
 ///     'include': list[range[datetime]],
 ///     'repeat': {
@@ -633,14 +657,28 @@ pub fn add_users(to_add: Vec<PyUser>) -> Result<Vec<UserId>> {
 ///   f32,
 /// )];
 /// ```
-pub fn get_rules(user: UserId) -> Result<Vec<PyRule>> {
-    match USERS.read().get(&user) {
-        Some(u) => Ok(u.availability.iter().map(From::from).collect()), // TODO: implement filtering
-        None => Err(Fault::new(
-            404,
-            format!("no user with the ID '{user}' exists"),
-        )),
-    }
+pub fn get_rules(filter: UserMap<RuleFilter>) -> Result<UserMap<RuleMap<PyRule>>> {
+    let users = USERS.read();
+    filter
+        .into_iter()
+        .flat_map(|(user_id, filter)| {
+            users.get(&user_id).map(|user| {
+                let RuleFilter { ids } = filter;
+                let ids = ids.as_ref();
+                Ok((
+                    user_id,
+                    user.availability
+                        .values()
+                        .filter(|slot| {
+                            // note that None => "do not filter", which is distinct from {} => "never"
+                            ids.is_none_or(|x| x.contains(&slot.id))
+                        })
+                        .map(From::from)
+                        .collect(),
+                ))
+            })
+        })
+        .collect()
 }
 
 /// A filter for selecting [`Slot`]s from the backend database.
@@ -665,6 +703,9 @@ pub struct SlotFilter {
 }
 
 /// Returns an array of all current slots.
+///
+/// Each filter parameter is combined as "and" (tasks must satisfy *all* conditions to be included).
+/// Parameters that are [`None`] will be ignored.
 ///
 /// Patterns should use `^$` (match start followed immediately by end) to match against empty names,
 /// as an empty pattern will always match (the empty set is a subset of every set).
@@ -824,26 +865,26 @@ pub fn get_users(filter: UserFilter) -> Result<UserMap<PyUser>> {
         .collect())
 }
 
-/// Removes one or more rules from one or more users, returning a list of any user IDs that do not exist and therefore could not have any rules popped.
+/// Removes one or more rules from one or more users, returning a collection of all failed removals.
 /// If all requested removals were successful, the list will be empty.
 ///
 /// Argument must be an array, even if only removing one.
 ///
 /// # Syntax
 /// ```py
-/// def pop_rules(to_pop: dict[UserId, list[ TBD ]]) -> set[UserId];
+/// def pop_rules(to_pop: dict[UserId, set[RuleId]]) -> dict[UserId, set[RuleId]];
 /// ```
-pub fn pop_rules(to_pop: UserMap<Vec<()>>) -> Result<UserSet> {
+pub fn pop_rules(to_pop: UserMap<RuleSet>) -> Result<UserMap<RuleSet>> {
     let mut users = USERS.write();
     Ok(to_pop
         .into_iter()
-        .filter_map(|(user, _rules)| match users.get_mut(&user) {
-            Some(user) => {
-                user.availability.retain(|_rule| todo!());
-                None
+        .map(|(user, mut rules)| {
+            if let Some(user) = users.get_mut(&user) {
+                user.availability.retain(|id, _| !rules.remove(id));
             }
-            None => Some(user),
+            (user, rules)
         })
+        .filter(|(_user, rules)| !rules.is_empty())
         .collect())
 }
 
