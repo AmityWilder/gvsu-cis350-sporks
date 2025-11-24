@@ -187,7 +187,11 @@ fn main() -> Result<()> {
 
     integration::register(&mut server);
 
-    let bound_server = server.bind(&socket).map_err(|e| miette!(e.to_string()))?;
+    println!("srv: attempting to bind socket {socket}...");
+    let bound_server = server.bind(&socket).map_err(|e| {
+        println!("failed to bind socket {socket}");
+        miette!("{e}")
+    })?;
     let _marker = RunningHandle::init(socket);
     loop {
         bound_server.poll();
