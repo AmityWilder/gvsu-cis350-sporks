@@ -1,22 +1,13 @@
 //! See [`User`]
 
 use crate::data::{
+    RuleMap,
     pref::Preference,
-    rule::Rule,
     skill::{Proficiency, SkillMap},
 };
-use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 
-/// Code uniquely identifying a user
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct UserId(pub u64);
-
-impl std::fmt::Display for UserId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "u.{:x}", self.0)
-    }
-}
+super::id_type!(impl Id<u64> for User as 'u');
 
 /// A person who can be scheduled to work on a task.
 #[derive(Debug, Serialize, Deserialize)]
@@ -29,7 +20,7 @@ pub struct User {
     pub name: String,
 
     /// Preferences regarding times the user can or can't be scheduled.
-    pub availability: Vec<Rule>,
+    pub availability: RuleMap,
 
     /// Preference towards sharing slots with other users.
     ///
@@ -44,9 +35,3 @@ pub struct User {
     /// as a missing skill is implied to be 0% proficiency.
     pub skills: SkillMap<Proficiency>,
 }
-
-/// A dictionary associating [`UserId`]s with `T`.
-pub type UserMap<T = User> = FxHashMap<UserId, T>;
-
-/// A set of [`UserId`]s.
-pub type UserSet = FxHashSet<UserId>;
