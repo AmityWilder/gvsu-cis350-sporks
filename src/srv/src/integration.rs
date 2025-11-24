@@ -635,6 +635,10 @@ pub fn add_users(to_add: Vec<PyUser>) -> Result<Vec<UserId>> {
 pub struct RuleFilter {
     /// A whitelist of the exact [`Rule::id`]s that should be included.
     pub ids: Option<RuleSet>,
+    /// The least preference the [`Rule`] can require.
+    pub min_pref: Option<f32>,
+    /// The greatest preference the [`Rule`] can require.
+    pub max_pref: Option<f32>,
 }
 
 /// Returns an dictionary of all current availability rules associated with each user, filtered by the parameters.
@@ -646,7 +650,11 @@ pub struct RuleFilter {
 ///
 /// # Signature
 /// ```py
-/// def get_rules(filter: dict[UserId, TODO]) -> list[(
+/// def get_rules(filter: dict[UserId, {
+///     'ids': set[RuleId],
+///     'min_pref': float | None,
+///     'max_pref': float | None,  # must be >=`min_pref`
+/// }]) -> list[(
 ///   {
 ///     'include': list[range[datetime]],
 ///     'repeat': {
@@ -672,15 +680,21 @@ pub fn get_rules(filter: UserMap<RuleFilter>) -> Result<UserMap<RuleMap<PyRule>>
         .into_iter()
         .flat_map(|(user_id, filter)| {
             users.get(&user_id).map(|user| {
-                let RuleFilter { ids } = filter;
+                let RuleFilter {
+                    ids,
+                    min_pref,
+                    max_pref,
+                } = filter;
                 let ids = ids.as_ref();
                 Ok((
                     user_id,
                     user.availability
                         .values()
-                        .filter(|slot| {
-                            // note that None => "do not filter", which is distinct from {} => "never"
-                            ids.is_none_or(|x| x.contains(&slot.id))
+                        .filter(|rule| {
+                            min_pref.is_none_or(|x| rule.pref.0 >= x)
+                                && max_pref.is_none_or(|x| rule.pref.0 <= x)
+                                // note that None => "do not filter", which is distinct from {} => "never"
+                                && ids.is_none_or(|x| x.contains(&rule.id))
                         })
                         .map(From::from)
                         .collect(),
