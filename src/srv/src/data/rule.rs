@@ -5,9 +5,7 @@ use chrono::{DateTime, Days, Months, TimeDelta, Utc};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-/// Code uniquely identifying a [`Rule`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct RuleId(pub u64);
+super::id_type!(impl Id<u64> for Rule as 'r');
 
 /// Once every `n` units. Fields are added together.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
