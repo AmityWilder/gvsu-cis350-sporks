@@ -1174,6 +1174,8 @@ pub fn mut_users(delta: UserMap<UserDelta>) -> Result<UserMap<RuleSet>> {
                                     if delete.remove(&i) {
                                         false
                                     } else {
+                                        // update has to be included in retain because
+                                        // indices will change when removals happen
                                         if let Some(replacement) = update.remove(&i) {
                                             *v = replacement;
                                         }
