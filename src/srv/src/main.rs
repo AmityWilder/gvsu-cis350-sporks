@@ -187,7 +187,7 @@ fn main() -> Result<()> {
 
     integration::register(&mut server);
 
-    let bound_server = server.bind(&socket).unwrap();
+    let bound_server = server.bind(&socket).map_err(|e| miette!(e.to_string()))?;
     let _marker = RunningHandle::init(socket);
     loop {
         bound_server.poll();
