@@ -9,21 +9,16 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::{
     num::NonZeroUsize,
-    sync::{
-        LazyLock,
-        atomic::{AtomicBool, AtomicU64, Ordering::Relaxed},
-    },
+    sync::{LazyLock, atomic::AtomicBool},
 };
 use xml_rpc::{Fault, Server};
 
 type Result<T> = std::result::Result<T, Fault>;
 
 pub(crate) static EXIT_REQUESTED: AtomicBool = const { AtomicBool::new(false) };
-pub(crate) static SLOTS: RwLock<Vec<Slot>> = RwLock::new(Vec::new());
+pub(crate) static SLOTS: RwLock<LazyLock<SlotMap>> = RwLock::new(LazyLock::new(SlotMap::default));
 pub(crate) static TASKS: RwLock<LazyLock<TaskMap>> = RwLock::new(LazyLock::new(TaskMap::default));
 pub(crate) static USERS: RwLock<LazyLock<UserMap>> = RwLock::new(LazyLock::new(UserMap::default));
-pub(crate) static NEXT_USER_ID: AtomicU64 = AtomicU64::new(0);
-pub(crate) static NEXT_TASK_ID: AtomicU64 = AtomicU64::new(0);
 
 mod re_serde {
     use regex::Regex;
@@ -307,9 +302,9 @@ pub struct PySlot {
     pub name: Option<String>,
 }
 
-impl From<PySlot> for Slot {
+impl From<(SlotId, PySlot)> for Slot {
     #[inline]
-    fn from(slot: PySlot) -> Self {
+    fn from((id, slot): (SlotId, PySlot)) -> Self {
         let PySlot {
             start,
             end,
@@ -317,6 +312,7 @@ impl From<PySlot> for Slot {
             name,
         } = slot;
         Self {
+            id,
             interval: TimeInterval { start, end },
             min_staff: min_staff.and_then(NonZeroUsize::new),
             name: name.unwrap_or_default(),
@@ -324,20 +320,31 @@ impl From<PySlot> for Slot {
     }
 }
 
-impl From<Slot> for PySlot {
+impl From<Slot> for (SlotId, PySlot) {
     #[inline]
     fn from(slot: Slot) -> Self {
         let Slot {
+            id,
             interval: TimeInterval { start, end },
             min_staff,
             name,
         } = slot;
-        Self {
-            start,
-            end,
-            min_staff: min_staff.map(NonZeroUsize::get),
-            name: (!name.is_empty()).then_some(name),
-        }
+        (
+            id,
+            PySlot {
+                start,
+                end,
+                min_staff: min_staff.map(NonZeroUsize::get),
+                name: (!name.is_empty()).then_some(name),
+            },
+        )
+    }
+}
+
+impl From<&Slot> for (SlotId, PySlot) {
+    #[inline]
+    fn from(slot: &Slot) -> Self {
+        slot.clone().into()
     }
 }
 
@@ -355,7 +362,7 @@ pub struct PyTask {
     pub deadline: Option<DateTime<Utc>>,
 
     /// Tasks that must be completed before this one can start
-    pub awaiting: Option<Vec<TaskId>>,
+    pub awaiting: Option<TaskSet>,
 }
 
 impl From<(TaskId, PyTask)> for Task {
@@ -392,7 +399,7 @@ impl From<Task> for (TaskId, PyTask) {
                 title,
                 desc: (!desc.is_empty()).then_some(desc),
                 deadline,
-                awaiting: (!deps.is_empty()).then(|| Vec::from_iter(deps)),
+                awaiting: (!deps.is_empty()).then(|| deps.clone()),
             },
         )
     }
@@ -487,6 +494,7 @@ pub fn add_rules(to_add: UserMap<Vec<PyRule>>) -> Result<UserSet> {
 }
 
 /// Insert one or more slots into the slot list.
+/// Returns the generated IDs of the newly created slots in the order they were provided.
 ///
 /// Argument must be an array, even if only adding one.
 ///
@@ -497,7 +505,7 @@ pub fn add_rules(to_add: UserMap<Vec<PyRule>>) -> Result<UserSet> {
 ///   'end':   datetime,        # must be >=`start`
 ///   'min_staff': int | None,  # cannot be negative; None is equivalent to 0
 ///   'name': str | None,
-/// }]) -> None;
+/// }]) -> list[SlotId];
 /// ```
 ///
 /// # Examples
@@ -509,12 +517,19 @@ pub fn add_rules(to_add: UserMap<Vec<PyRule>>) -> Result<UserSet> {
 ///   'min_staff': 3,
 /// }])
 /// ```
-pub fn add_slots(to_add: Vec<PySlot>) -> Result<()> {
-    SLOTS.write().extend(to_add.into_iter().map(Slot::from));
-    Ok(())
+pub fn add_slots(to_add: Vec<PySlot>) -> Result<Vec<SlotId>> {
+    let ids = SlotId::take(to_add.len().try_into().unwrap());
+    SLOTS.write().extend(
+        ids.clone()
+            .zip(to_add)
+            .map(Slot::from)
+            .map(|slot| (slot.id, slot)),
+    );
+    Ok(ids.collect())
 }
 
-/// Insert one or more tasks into the user table. Returns the generated IDs of the newly created tasks in the order they were provided.
+/// Insert one or more tasks into the user table.
+/// Returns the generated IDs of the newly created tasks in the order they were provided.
 ///
 /// Argument must be an array, even if only adding one.
 ///
@@ -524,7 +539,7 @@ pub fn add_slots(to_add: Vec<PySlot>) -> Result<()> {
 ///   'title': str,
 ///   'desc': str | None,
 ///   'deadline': datetime | None,
-///   'awaiting': list[TaskId] | None,
+///   'awaiting': set[TaskId] | None,
 /// }]) -> list[TaskId];
 /// ```
 ///
@@ -553,9 +568,7 @@ pub fn add_slots(to_add: Vec<PySlot>) -> Result<()> {
 ///
 /// **See also:** [`datetime`](https://docs.python.org/3/library/datetime.html)
 pub fn add_tasks(to_add: Vec<PyTask>) -> Result<Vec<TaskId>> {
-    let additional = to_add.len().try_into().unwrap();
-    let start = NEXT_TASK_ID.fetch_add(additional, Relaxed);
-    let ids = (start..start + additional).map(TaskId);
+    let ids = TaskId::take(to_add.len().try_into().unwrap());
     TASKS.write().extend(
         ids.clone()
             .zip(to_add)
@@ -565,7 +578,8 @@ pub fn add_tasks(to_add: Vec<PyTask>) -> Result<Vec<TaskId>> {
     Ok(ids.collect())
 }
 
-/// Insert one or more users into the user table. Returns the generated IDs of the newly created users in the order they were provided.
+/// Insert one or more users into the user table.
+/// Returns the generated IDs of the newly created users in the order they were provided.
 ///
 /// Argument must be an array, even if only adding one.
 ///
@@ -583,9 +597,7 @@ pub fn add_tasks(to_add: Vec<PyTask>) -> Result<Vec<TaskId>> {
 /// proxy.add_users([{'name': "tom"}, {'name': "sally"}])
 /// ```
 pub fn add_users(to_add: Vec<PyUser>) -> Result<Vec<UserId>> {
-    let additional = to_add.len().try_into().unwrap();
-    let start = NEXT_USER_ID.fetch_add(additional, Relaxed);
-    let ids = (start..start + additional).map(UserId);
+    let ids = UserId::take(to_add.len().try_into().unwrap());
     USERS.write().extend(
         ids.clone()
             .zip(to_add)
@@ -634,6 +646,8 @@ pub fn get_rules(user: UserId) -> Result<Vec<PyRule>> {
 /// A filter for selecting [`Slot`]s from the backend database.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SlotFilter {
+    /// A whitelist of the exact [`Slot::id`]s that should be included.
+    pub ids: Option<SlotSet>,
     /// The ealiest datetime the [`Slot`] can start at.
     pub starting_after: Option<DateTime<Utc>>,
     /// The latest datetime the [`Slot`] can start at.
@@ -658,6 +672,7 @@ pub struct SlotFilter {
 /// # Syntax
 /// ```py
 /// def get_slots(filter: {
+///   'ids': set[SlotId] | None,
 ///   'starting_before': datetime | None,  # inclusive
 ///   'starting_after':  datetime | None,  # inclusive
 ///   'ending_before':   datetime | None,  # inclusive
@@ -672,8 +687,9 @@ pub struct SlotFilter {
 ///   'name': str | None,
 /// }];
 /// ```
-pub fn get_slots(filter: SlotFilter) -> Result<Vec<PySlot>> {
+pub fn get_slots(filter: SlotFilter) -> Result<SlotMap<PySlot>> {
     let SlotFilter {
+        ids,
         starting_before,
         starting_after,
         ending_before,
@@ -682,10 +698,11 @@ pub fn get_slots(filter: SlotFilter) -> Result<Vec<PySlot>> {
         min_staff_max,
         name_pat,
     } = filter;
+    let ids = ids.as_ref();
     let name_pat = name_pat.as_ref();
     Ok(SLOTS
         .read()
-        .iter()
+        .values()
         .filter(|slot| {
             starting_before.is_none_or(|x| slot.start <= x)
                 && starting_after.is_none_or(|x| slot.start >= x)
@@ -693,10 +710,11 @@ pub fn get_slots(filter: SlotFilter) -> Result<Vec<PySlot>> {
                 && ending_after.is_none_or(|x| slot.end >= x)
                 && min_staff_min.is_none_or(|x| slot.min_staff.map_or(0, NonZeroUsize::get) >= x)
                 && min_staff_max.is_none_or(|x| slot.min_staff.map_or(0, NonZeroUsize::get) <= x)
+                // note that None => "do not filter", which is distinct from {} => "never"
+                && ids.is_none_or(|x| x.contains(&slot.id))
                 // use "^$" to match against empty names
                 && name_pat.is_none_or(|x| x.is_match(&slot.name))
         })
-        .cloned()
         .map(From::from)
         .collect())
 }
@@ -734,7 +752,7 @@ pub struct TaskFilter {
 ///     'title': str,
 ///     'desc':  str | None,
 ///     'deadline': datetime | None,
-///     'awaiting': list[TaskId] | None,
+///     'awaiting': set[TaskId] | None,
 ///   }
 /// ];
 /// ```
@@ -829,15 +847,18 @@ pub fn pop_rules(to_pop: UserMap<Vec<()>>) -> Result<UserSet> {
         .collect())
 }
 
-/// Removes one or more slots.
+/// Removes slots by ID, returning a list of any IDs that failed to be removed (ex: slot with that ID did not exist).
+/// If all requested removals were successful, the list will be empty.
 ///
 /// Argument must be an array, even if only removing one.
 ///
 /// # Syntax
-///
-/// TBD
-pub fn pop_slots(_to_pop: ()) -> Result<()> {
-    todo!()
+/// ```py
+/// def pop_slots(to_pop: set[SlotId]) -> set[SlotId];
+/// ```
+pub fn pop_slots(mut to_pop: SlotSet) -> Result<SlotSet> {
+    SLOTS.write().retain(|id, _| !to_pop.remove(id));
+    Ok(to_pop)
 }
 
 /// Removes tasks by ID, returning a list of any IDs that failed to be removed (ex: task with that ID did not exist).

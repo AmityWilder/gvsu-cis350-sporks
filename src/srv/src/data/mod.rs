@@ -74,6 +74,7 @@ macro_rules! time_interval {
 #[macro_export]
 macro_rules! slots {
     ($(
+        $id:literal:
         $mo0:literal/$d0:literal/$yr0:literal$( @ $hr0:literal:$m0:literal)? -
         $mo1:literal/$d1:literal/$yr1:literal$( @ $hr1:literal:$m1:literal)?
         $([$min_staff:literal])?
@@ -81,6 +82,7 @@ macro_rules! slots {
     ),+ $(,)?) => {
         vec![$(
             $crate::data::slot::Slot {
+                id: $crate::data::slot::SlotId($id),
                 interval: $crate::time_interval!($mo0/$d0/$yr0$( @ $hr0:$m0)? - $mo1/$d1/$yr1$( @ $hr1:$m1)?),
                 min_staff: None$(.or(std::num::NonZeroUsize::new($min_staff)))?,
                 name: None$(.or(Some($name.to_string())))?.unwrap_or(String::new())
@@ -166,6 +168,25 @@ macro_rules! id_type {
             $(#[$m])*
             #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
             pub struct [<$Type Id>](pub(crate) $repr);
+
+            #[allow(dead_code)]
+            static [<NEXT_ $Type:snake:upper _ID>]: ::std::sync::atomic::[<Atomic $repr:camel>] = ::std::sync::atomic::[<Atomic $repr:camel>]::new(0);
+
+            #[allow(dead_code)]
+            impl [<$Type Id>] {
+                pub(crate) fn store(value: $repr) {
+                    [<NEXT_ $Type:snake:upper _ID>].store(value, ::std::sync::atomic::Ordering::Relaxed);
+                }
+
+                pub(crate) fn next() -> Option<Self> {
+                    Self::take(1).next()
+                }
+
+                pub(crate) fn take(n: $repr) -> ::std::iter::Map<::std::ops::Range<$repr>, fn($repr) -> Self> {
+                    let start = [<NEXT_ $Type:snake:upper _ID>].fetch_add(n, ::std::sync::atomic::Ordering::Relaxed);
+                    (start..start + n).map(Self)
+                }
+            }
 
             impl std::fmt::Display for [<$Type Id>] {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

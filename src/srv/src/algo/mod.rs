@@ -262,8 +262,8 @@ mod scheduler_tests {
         };
 
         let slots = slots! {
-            4/12/2025 @ 5:30 - 6/12/2025 @ 6:30 [2] | "a",
-            4/12/2025 @ 6:30 - 6/12/2025 @ 7:30 [2] | "b",
+            0: 4/12/2025 @ 5:30 - 6/12/2025 @ 6:30 [2] | "a",
+            1: 4/12/2025 @ 6:30 - 6/12/2025 @ 7:30 [2] | "b",
         };
 
         let schedule = Schedule::generate(&slots, &Default::default(), &users).unwrap();

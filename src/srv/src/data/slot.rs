@@ -189,6 +189,9 @@ impl TimeInterval {
 /// (See [`TimeInterval` ordering](TimeInterval#ordering)).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Slot {
+    /// Duplicate of the slot's ID.
+    pub id: SlotId,
+
     /// The time period the slot refers to.
     pub interval: TimeInterval,
 
