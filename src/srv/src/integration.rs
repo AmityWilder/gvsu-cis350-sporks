@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::{
     num::NonZeroUsize,
+    path::PathBuf,
     sync::{LazyLock, atomic::AtomicBool},
 };
 use xml_rpc::{Fault, Server};
@@ -982,6 +983,135 @@ pub fn pop_users(mut to_pop: UserSet) -> Result<UserSet> {
     Ok(to_pop)
 }
 
+/// Save all current [`Slot`] data to a file stored at `path`.
+pub fn save_slots(path: PathBuf) -> Result<()> {
+    csv::WriterBuilder::default()
+        .from_path(path)
+        .and_then(|mut w| w.serialize(SLOTS.read().values().collect::<Vec<_>>()))
+        .map_err(|e| Fault::new(500, e.to_string()))
+}
+
+/// Save all current [`Task`] data to a file stored at `path`.
+pub fn save_tasks(path: PathBuf) -> Result<()> {
+    csv::WriterBuilder::default()
+        .from_path(path)
+        .and_then(|mut w| w.serialize(TASKS.read().values().collect::<Vec<_>>()))
+        .map_err(|e| Fault::new(500, e.to_string()))
+}
+
+/// Save all current [`User`] data to a file stored at `path`.
+///
+/// Also saves all [`Rule`]s.
+pub fn save_users(path: PathBuf) -> Result<()> {
+    csv::WriterBuilder::default()
+        .from_path(path)
+        .and_then(|mut w| w.serialize(USERS.read().values().collect::<Vec<_>>()))
+        .map_err(|e| Fault::new(500, e.to_string()))
+}
+
+/// Load all current [`Slot`] data to a file stored at `path`.
+///
+/// **WARNING:** Current data will be overwitten without saving!
+pub fn load_slots(path: PathBuf) -> Result<()> {
+    let mut next_id = 0;
+    **SLOTS.write() = csv::ReaderBuilder::default()
+        .from_path(path)
+        .and_then(|r| {
+            r.into_deserialize::<Slot>()
+                .map(|x| {
+                    x.map(|slot| {
+                        next_id = next_id.max(slot.id.0 + 1);
+                        (slot.id, slot)
+                    })
+                })
+                .collect()
+        })
+        .map_err(|e| Fault::new(500, e.to_string()))?;
+    SlotId::store(next_id);
+    Ok(())
+}
+
+/// Load all current [`Task`] data to a file stored at `path`.
+///
+/// **WARNING:** Current data will be overwitten without saving!
+pub fn load_tasks(path: PathBuf) -> Result<()> {
+    let mut next_id = 0;
+    **TASKS.write() = csv::ReaderBuilder::default()
+        .from_path(path)
+        .and_then(|r| {
+            r.into_deserialize::<Task>()
+                .map(|x| {
+                    x.map(|task| {
+                        next_id = next_id.max(task.id.0 + 1);
+                        (task.id, task)
+                    })
+                })
+                .collect()
+        })
+        .map_err(|e| Fault::new(500, e.to_string()))?;
+    TaskId::store(next_id);
+    Ok(())
+}
+
+/// Load all current [`User`] data to a file stored at `path`.
+///
+/// Also loads all [`Rule`]s.
+///
+/// **WARNING:** Current data will be overwitten without saving!
+pub fn load_users(path: PathBuf) -> Result<()> {
+    let mut next_id = 0;
+    let mut rule_id = 0;
+    **USERS.write() = csv::ReaderBuilder::default()
+        .from_path(path)
+        .and_then(|r| {
+            r.into_deserialize::<User>()
+                .map(|x| {
+                    x.map(|user| {
+                        next_id = next_id.max(user.id.0 + 1);
+                        if let Some(max) = user.availability.keys().map(|id| id.0).max() {
+                            rule_id = max.max(rule_id);
+                        }
+                        (user.id, user)
+                    })
+                })
+                .collect()
+        })
+        .map_err(|e| Fault::new(500, e.to_string()))?;
+    UserId::store(next_id);
+    RuleId::store(rule_id);
+    Ok(())
+}
+
+/// Clear all current [`Slot`] data.
+///
+/// **WARNING:** Current data will not be saved!
+pub fn wipe_slots((): ()) -> Result<()> {
+    SLOTS.write().clear();
+    SlotId::store(0);
+    Ok(())
+}
+
+/// Clear all current [`Task`] data.
+///
+/// **WARNING:** Current data will not be saved!
+pub fn wipe_tasks((): ()) -> Result<()> {
+    TASKS.write().clear();
+    TaskId::store(0);
+    Ok(())
+}
+
+/// Clear all current [`User`] data.
+///
+/// Also clears all [`Rule`]s.
+///
+/// **WARNING:** Current data will not be saved!
+pub fn wipe_users((): ()) -> Result<()> {
+    USERS.write().clear();
+    UserId::store(0);
+    RuleId::store(0);
+    Ok(())
+}
+
 /// Close the server after completing all ongoing tasks.
 ///
 /// # Signature
@@ -1020,6 +1150,18 @@ pub(crate) fn register(server: &mut Server) {
     server.register_simple("pop_slots", pop_slots);
     server.register_simple("pop_tasks", pop_tasks);
     server.register_simple("pop_users", pop_users);
+
+    server.register_simple("save_slots", save_slots);
+    server.register_simple("save_tasks", save_tasks);
+    server.register_simple("save_users", save_users);
+
+    server.register_simple("load_slots", load_slots);
+    server.register_simple("load_tasks", load_tasks);
+    server.register_simple("load_users", load_users);
+
+    server.register_simple("wipe_slots", wipe_slots);
+    server.register_simple("wipe_tasks", wipe_tasks);
+    server.register_simple("wipe_users", wipe_users);
 
     server.register_simple("quit", quit);
 }
