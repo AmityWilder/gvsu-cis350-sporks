@@ -105,28 +105,30 @@ impl Schedule {
         let _deps = dep_graph(tasks)?;
         // let ord = dep_order(&deps);
 
-        let mut _slot_candidates = slots
-            .iter()
-            .map(|(slot_id, slot)| {
-                let interval = &slot.interval;
-                let candidates = users
-                    .values()
-                    .filter_map(|u| {
-                        let mut it = u
-                            .availability
-                            .values()
-                            .filter(|r| r.pref > Preference::NEG_INFINITY && r.contains(interval))
-                            .peekable();
+        let mut _slot_candidates = slots.iter().map(|(slot_id, slot)| {
+            let interval = &slot.interval;
+            let candidates = users
+                .values()
+                .filter_map(|u| {
+                    let mut it = u
+                        .availability
+                        .values()
+                        .filter(|r| r.pref > Preference::NEG_INFINITY && r.contains(interval))
+                        .peekable();
 
-                        it.peek()
-                            .is_some()
-                            .then(|| (u.id, it.map(|r| (r.pref, r)).collect()))
+                    it.peek().is_some().then(|| {
+                        (
+                            u.id,
+                            it.map(|r| (r.pref, r))
+                                .collect::<BTreeMap<Preference, &Rule>>(),
+                        )
                     })
-                    .collect();
+                })
+                .collect::<UserMap<_>>();
 
-                (*slot_id, candidates)
-            })
-            .collect::<SlotMap<UserMap<BTreeMap<Preference, &Rule>>>>();
+            (*slot_id, candidates)
+        });
+        // .collect::<SlotMap<_>>();
 
         slots
             .iter()
