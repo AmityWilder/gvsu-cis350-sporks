@@ -1,17 +1,11 @@
 //! See [`Skill`]
 
-use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 
-/// Code uniquely identifying a skill - used to determine which users *can* be scheduled on a task
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct SkillId(pub u32);
-
-impl std::fmt::Display for SkillId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "s.{:x}", self.0)
-    }
-}
+super::id_type!(
+    /// Used to determine which users *can* be scheduled on a [`Task`].
+    impl Id<u32> for Skill as 's'
+);
 
 /// Metadata regarding a skill
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -21,12 +15,6 @@ pub struct Skill {
     /// Description of the skill
     pub desc: String,
 }
-
-/// A dictionary associating [`SkillId`]s with `T`.
-pub type SkillMap<T = Skill> = FxHashMap<SkillId, T>;
-
-/// A set of [`SkillId`]s.
-pub type SkillSet = FxHashSet<SkillId>;
 
 /// Level of skill
 ///

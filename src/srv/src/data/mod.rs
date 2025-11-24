@@ -158,3 +158,28 @@ macro_rules! users {
         $crate::data::user::UserMap::default()
     };
 }
+
+macro_rules! id_type {
+    ($(#[$m:meta])* impl Id<$repr:ty> for $Type:ident as $prefix:literal) => {
+        ::paste::paste! {
+            #[doc = " Code uniquely identifying a [`" $Type "`]."]
+            $(#[$m])*
+            #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+            pub struct [<$Type Id>](pub(crate) $repr);
+
+            impl std::fmt::Display for [<$Type Id>] {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    write!(f, concat!($prefix, ".{:x}"), self.0)
+                }
+            }
+
+            #[doc = " A dictionary associating [`" [<$Type Id>] "`]s with `T`."]
+            pub type [<$Type Map>]<T = $Type> = ::rustc_hash::FxHashMap<[<$Type Id>], T>;
+
+            #[doc = " A set of [`" [<$Type Id>] "`]s."]
+            pub type [<$Type Set>] = ::rustc_hash::FxHashSet<[<$Type Id>]>;
+        }
+    };
+}
+
+pub(crate) use id_type;

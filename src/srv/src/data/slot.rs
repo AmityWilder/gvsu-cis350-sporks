@@ -5,6 +5,8 @@ use miette::Result;
 use serde::{Deserialize, Serialize, de::Visitor};
 use std::num::NonZeroUsize;
 
+super::id_type!(impl Id<u128> for Slot as 's');
+
 /// A timerange, mainly intended for timeslots.
 ///
 /// # [Ordering](`Ord`)
