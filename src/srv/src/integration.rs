@@ -110,7 +110,8 @@ impl Pattern {
     ///
     /// # Errors
     ///
-    /// Produces a [422 Unprocessable Content](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/422) error if the argument is not valid [`regex`].
+    /// Produces a [422 Unprocessable Content](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/422)
+    /// error if the argument is not valid [`regex`].
     #[inline]
     pub fn regex(s: String) -> Result<Self> {
         Regex::new(&s)
@@ -136,16 +137,22 @@ impl Pattern {
 pub struct PyFreq {
     /// Repeat every `n` seconds.
     pub seconds: Option<u8>,
+
     /// Repeat every `n` minutes.
     pub minutes: Option<u8>,
+
     /// Repeat every `n` hours.
     pub hours: Option<u8>,
+
     /// Repeat every `n` days.
     pub days: Option<u8>,
+
     /// Repeat every `n` weeks.
     pub weeks: Option<u8>,
+
     /// Repeat every `n` months.
     pub months: Option<u8>,
+
     /// Repeat every `n` years.
     pub years: Option<u16>,
 }
@@ -635,8 +642,10 @@ pub fn add_users(to_add: Vec<PyUser>) -> Result<Vec<UserId>> {
 pub struct RuleFilter {
     /// A whitelist of the exact [`Rule::id`]s that should be included.
     pub ids: Option<RuleSet>,
+
     /// The least preference the [`Rule`] can require.
     pub min_pref: Option<f32>,
+
     /// The greatest preference the [`Rule`] can require.
     pub max_pref: Option<f32>,
 }
@@ -709,18 +718,25 @@ pub fn get_rules(filter: UserMap<RuleFilter>) -> Result<UserMap<RuleMap<PyRule>>
 pub struct SlotFilter {
     /// A whitelist of the exact [`Slot::id`]s that should be included.
     pub ids: Option<SlotSet>,
+
     /// The ealiest datetime the [`Slot`] can start at.
     pub starting_after: Option<DateTime<Utc>>,
+
     /// The latest datetime the [`Slot`] can start at.
     pub starting_before: Option<DateTime<Utc>>,
+
     /// The ealiest datetime the [`Slot`] can end at.
     pub ending_after: Option<DateTime<Utc>>,
+
     /// The latest datetime the [`Slot`] can end at.
     pub ending_before: Option<DateTime<Utc>>,
+
     /// The least staff the [`Slot`] can require (0 is equivalent to [`None`]).
     pub min_staff_min: Option<usize>,
+
     /// The greatest staff the [`Slot`] can require (0 is equivalent to [`None`]).
     pub min_staff_max: Option<usize>,
+
     /// A [`Pattern`] the [`Slot::name`] must [match](Pattern::is_match).
     pub name_pat: Option<Pattern>,
 }
@@ -788,12 +804,16 @@ pub fn get_slots(filter: SlotFilter) -> Result<SlotMap<PySlot>> {
 pub struct TaskFilter {
     /// A whitelist of the exact [`Task::id`]s that should be included.
     pub ids: Option<TaskSet>,
+
     /// A [`Pattern`] the [`Task::title`] must [match](Pattern::is_match).
     pub title_pat: Option<Pattern>,
+
     /// A [`Pattern`] the [`Task::desc`] must [match](Pattern::is_match).
     pub desc_pat: Option<Pattern>,
+
     /// The ealiest datetime the [`Task::deadline`] can be.
     pub deadline_after: Option<DateTime<Utc>>,
+
     /// The latest datetime the [`Task::deadline`] can be.
     pub deadline_before: Option<DateTime<Utc>>,
 }
@@ -855,6 +875,7 @@ pub fn get_tasks(filter: TaskFilter) -> Result<TaskMap<PyTask>> {
 pub struct UserFilter {
     /// A whitelist of the exact [`User::id`]s that should be included.
     pub ids: Option<Vec<UserId>>,
+
     /// A [`Pattern`] the [`User::name`] must [match](Pattern::is_match).
     pub name_pat: Option<Pattern>,
 }
