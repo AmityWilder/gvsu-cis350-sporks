@@ -20,12 +20,22 @@
 //!
 //! TODO: consider [PERT](https://en.wikipedia.org/wiki/Program_evaluation_and_review_technique)
 
+<<<<<<< HEAD
 use crate::data::{Preference, Slot, Task, TaskId, TaskMap, User, UserId};
 use daggy::{Dag, Walker, WouldCycle};
 use miette::Result;
 use petgraph::visit::Topo;
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
+=======
+use crate::data::*;
+use daggy::{Dag, Walker, WouldCycle};
+use miette::Result;
+use petgraph::visit::Topo;
+use rustc_hash::{FxBuildHasher, FxHashMap};
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
 use thiserror::Error;
 
 /// Error generated while attempting to create a schedule.
@@ -40,6 +50,17 @@ pub enum SchedulingError {
     /// Failed to construct a DAG due to existence of a cycle.
     #[error("task dependencies cannot be cyclic")]
     WouldCycle(#[from] WouldCycle<Vec<()>>),
+<<<<<<< HEAD
+=======
+
+    /// Schedule would break a [`Preference::INFINITY`]/[`Preference::NEG_INFINITY`] requirement.
+    #[error("no schedule can be generated that does not break at least one +/-inf preference")]
+    Illegal,
+
+    /// Not enough [`User`]s for the provided [`Slot`]s.
+    #[error("insufficient users to cover shifts")]
+    Understaffed,
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
 }
 
 type DepGraph<'a> = Dag<&'a Task, ()>;
@@ -82,14 +103,19 @@ pub fn dep_order<'a>(graph: &DepGraph<'a>) -> impl Iterator<Item = &'a Task> + C
 
 /// A collection of time slots along with the tasks and users assigned to them.
 #[derive(Debug, Serialize, Deserialize)]
+<<<<<<< HEAD
 pub struct Schedule {
     /// Timeslots and their assignments.
     pub slots: Vec<(Slot, FxHashSet<TaskId>, FxHashSet<UserId>)>,
 }
+=======
+pub struct Schedule(pub SlotMap</* (TaskSet, */ UserSet /* ) */>);
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
 
 impl Schedule {
     /// Generate a schedule based on the provided requirements.
     ///
+<<<<<<< HEAD
     /// See [module-level documentation](crate::algo) for more details.
     pub fn generate(
         slots: &[Slot],
@@ -119,13 +145,118 @@ impl Schedule {
         }
 
         todo!()
+=======
+    /// See [module-level documentation](self) for more details.
+    pub fn generate(
+        slots: &SlotMap,
+        tasks: &TaskMap,
+        users: &UserMap,
+    ) -> Result<Self, SchedulingError> {
+        let _deps = dep_graph(tasks)?;
+        // let ord = dep_order(&deps);
+
+        let mut _slot_candidates = slots
+            .iter()
+            .map(|(slot_id, slot)| {
+                let interval = &slot.interval;
+                let candidates = users
+                    .values()
+                    .filter_map(|u| {
+                        let mut it = u
+                            .availability
+                            .values()
+                            .filter(|r| r.pref > Preference::NEG_INFINITY && r.contains(interval))
+                            .peekable();
+
+                        it.peek()
+                            .is_some()
+                            .then(|| (u.id, it.map(|r| (r.pref, r)).collect()))
+                    })
+                    .collect();
+
+                (*slot_id, candidates)
+            })
+            .collect::<SlotMap<UserMap<BTreeMap<Preference, &Rule>>>>();
+
+        slots
+            .iter()
+            .map(|(slot_id, slot)| {
+                let mut candidates = users
+                    .values()
+                    .filter_map(|u| {
+                        let mut it = u
+                            .availability
+                            .values()
+                            .filter(|r| {
+                                r.pref > Preference::NEG_INFINITY && r.contains(&slot.interval)
+                            })
+                            .map(|r| (r.pref, r))
+                            .peekable();
+
+                        it.peek().is_some().then(|| (u, it.collect()))
+                    })
+                    .collect::<Vec<(&User, BTreeMap<Preference, &Rule>)>>();
+
+                let staff = 'staff: {
+                    let mut staff = if let Some(min_staff) = slot.min_staff {
+                        use std::cmp::Ordering;
+                        let n = min_staff.get();
+                        match candidates.len().cmp(&n) {
+                            Ordering::Greater => {
+                                UserSet::with_capacity_and_hasher(n, FxBuildHasher)
+                            }
+
+                            Ordering::Equal => {
+                                // don't need to sort if we're taking all of them
+                                break 'staff candidates
+                                    .into_iter()
+                                    .map(|(user, _)| user.id)
+                                    .collect();
+                            }
+
+                            Ordering::Less => return Err(SchedulingError::Understaffed),
+                        }
+                    } else {
+                        Default::default()
+                    };
+
+                    candidates.sort_by_cached_key(|(_, prefs)| {
+                        std::cmp::Reverse(
+                            *prefs
+                                .first_key_value() // maximum preference
+                                .expect("candidates are filtered by overlap with this slot")
+                                .0,
+                        )
+                    });
+
+                    if let Some(min_staff) = slot.min_staff {
+                        staff.extend(
+                            candidates
+                                .split_off(min_staff.get())
+                                .into_iter()
+                                .map(|(user, _)| user.id),
+                        );
+                    }
+
+                    staff
+                };
+
+                Ok((*slot_id, staff))
+            })
+            .collect::<Result<_, _>>()
+            .map(Schedule)
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
     }
 }
 
 #[cfg(test)]
 mod scheduler_tests {
     use super::*;
+<<<<<<< HEAD
     use chrono::prelude::{NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
+=======
+    use rustc_hash::FxHashSet;
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
 
     fn dbg_ord(dep_graph: &DepGraph<'_>) {
         println!("task order:");
@@ -147,6 +278,7 @@ mod scheduler_tests {
         }
     }
 
+<<<<<<< HEAD
     macro_rules! test_project {
         ($(
             $id:literal: $title:literal
@@ -183,12 +315,21 @@ mod scheduler_tests {
                 .into_iter()
                 .map(|task| (task.id, task))
                 .collect()
+=======
+    macro_rules! hash_set {
+        ($($item:expr),* $(,)?) => {
+            FxHashSet::from_iter([$($item),*])
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
         };
     }
 
     #[test]
     fn test0() {
+<<<<<<< HEAD
         let tasks = test_project! {
+=======
+        let tasks = tasks! {
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
             5436: "foo" [4/12/2025 @ 5:30] {},
             2537: "bar" [4/12/2025] { 3423 },
             3423: "baz" { 5436 },
@@ -197,10 +338,56 @@ mod scheduler_tests {
         let dag = dep_graph(&tasks).unwrap();
         dbg_ord(&dag);
         assert_eq!(
+<<<<<<< HEAD
             dep_order(&dag)
                 .map(|task| task.title.as_str())
                 .collect::<Vec<_>>(),
             vec!["foo", "baz", "bar"]
+=======
+            &dep_order(&dag)
+                .map(|task| task.title.as_str())
+                .collect::<Vec<_>>(),
+            &["foo", "baz", "bar"]
+        );
+    }
+
+    #[test]
+    fn test1() {
+        let users = users! {
+            4578: "bob" {
+                0: 4/12/2025 @ 6:30 - 6/12/2025 @ 7:30 | 1.0,
+            },
+            4753: "lisa" {
+                1: 4/12/2025 @ 5:30 - 6/12/2025 @ 6:30 | 1.0,
+            },
+            2773: "jones" {
+                2: 4/12/2025 @ 5:30 - 6/12/2025 @ 7:30 | 1.0,
+            },
+        };
+
+        let slots = slots! {
+            0: 4/12/2025 @ 5:30 - 6/12/2025 @ 6:30 [2] | "a",
+            1: 4/12/2025 @ 6:30 - 6/12/2025 @ 7:30 [2] | "b",
+        };
+
+        let schedule = Schedule::generate(&slots, &Default::default(), &users).unwrap();
+        assert_eq!(
+            schedule
+                .0
+                .iter()
+                .map(|(slot, staff)| (
+                    slots[slot].name.as_str(),
+                    staff
+                        .iter()
+                        .map(|id| users[id].name.as_str())
+                        .collect::<FxHashSet<_>>()
+                ))
+                .collect::<FxHashMap<_, _>>(),
+            FxHashMap::from_iter([
+                ("a", hash_set! { "lisa", "jones" }),
+                ("b", hash_set! { "bob", "jones" }),
+            ]),
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
         );
     }
 }

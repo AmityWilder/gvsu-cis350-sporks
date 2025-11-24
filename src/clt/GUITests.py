@@ -102,7 +102,6 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     emp_bottom=ttk.Frame(tab2)
 
     task_center=ttk.Frame(tab3)
-    task_under=ttk.Frame(tab3)
     task_table=ttk.Frame(tab3)
     tskcanvas=tk.Canvas(task_table)
     tsktable=ttk.Frame(tskcanvas)
@@ -127,14 +126,12 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     # columns in list
     sft_columns = len(sft_lst[0])
     ttk.Label(tab1,text='Create shifts',font=('Arial',14,'bold')).pack(pady=10)
-    
 
     shifttab=Table(sfttable,shiftcanvas,shift_center,sft_lst)
-    ttk.Label(shift_center,text='Dates must be in ******* format',font=('Arial',12,'bold')).grid(row=1, pady=10)
     sftsave=ttk.Button(sft_bottom,text='Save',command=lambda:saving(proxy,shifttab,'shift'))
     sftsave.pack(side=tk.BOTTOM)
 
-    shift_center.pack(fill='x')
+    shift_center.pack()
     shift_table.pack(pady=20, padx=75, fill='x')
     sft_bottom.pack()
 
@@ -154,11 +151,10 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     #namemenue = ttk.Combobox(employee_center, width=30,values=employeelist,textvariable=selected_name)
     #namemenue.grid(row=1,column=0)
     employeetab=Table(emptable,empcanvas,employee_center,emp_lst)
-    ttk.Label(employee_center,text='Employee name',font=('Arial',12)).grid(row=1, pady=10)
     empsave=ttk.Button(emp_bottom,text='Save',command=lambda:saving(proxy,employeetab,'user'))
     empsave.pack(side=tk.BOTTOM)
 
-    employee_center.pack(fill='x')
+    employee_center.pack()
     employee_table.pack(pady=20, padx=25, fill='x')
     emp_bottom.pack()
 
@@ -171,10 +167,6 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     tsk_columns = len(tsk_lst[0])
     ttk.Label(tab3,text='Create Tasks',font=('Arial',14,'bold')).pack(pady=10)
     tasktab=Table(tsktable,tskcanvas,task_center,tsk_lst)
-    ttk.Label(task_under,text='Dates must be in ******* format',font=('Arial',12,'bold')).grid(row=1, column = 1,pady=10, padx=10)
-    ttk.Label(task_under,text='Name of task',font=('Arial',12)).grid(row=2, column=0, padx=50)
-    ttk.Label(task_under,text='Date of deadline for task',font=('Arial',12)).grid(row=2, column=1, padx=10)
-    ttk.Label(task_under,text='Description of task',font=('Arial',12)).grid(row=2, column=2, padx=20)
     tsksave=ttk.Button(tsk_bottom,text='Save',command=lambda:saving(proxy,tasktab,'task'))
     tsksave.pack(side=tk.BOTTOM)
 
@@ -190,7 +182,6 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     
 
     task_center.pack()
-    task_under.pack(fill='x')
     task_table.pack(pady=20, padx=25, fill='x')
     tsk_bottom.pack()
     

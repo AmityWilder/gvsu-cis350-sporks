@@ -548,7 +548,11 @@ checksum = "e629b9b98ef3dd8afe6ca2bd0f89306cec16d43d907889945bc5d6687f2f13c7"
 
 [[package]]
 name = "gvsu-cis350-sporks"
+<<<<<<< HEAD
 version = "0.1.0"
+=======
+version = "0.2.0"
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
 dependencies = [
  "anyhow",
  "bitflags 2.9.4",
@@ -564,8 +568,15 @@ dependencies = [
  "miette",
  "num-traits",
  "parking_lot",
+<<<<<<< HEAD
  "petgraph",
  "quote",
+=======
+ "paste",
+ "petgraph",
+ "quote",
+ "regex",
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
  "rouille",
  "rustc-hash",
  "semver",
@@ -1117,6 +1128,15 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
+=======
+name = "paste"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
+
+[[package]]
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
 name = "percent-encoding"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1480,6 +1500,12 @@ name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
+<<<<<<< HEAD
+=======
+dependencies = [
+ "serde",
+]
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
 
 [[package]]
 name = "stable_deref_trait"
