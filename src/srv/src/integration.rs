@@ -475,7 +475,9 @@ impl From<&User> for (UserId, PyUser) {
 }
 
 /// Add one or more availability rules to one or more users.
+///
 /// Returns the generated IDs of the newly created rules in the order they were provided.
+///
 /// If a provided user does not exist, those rules will not be created and that user will be missing from the returned dictionary.
 ///
 /// # Syntax
@@ -509,6 +511,7 @@ pub fn add_rules(to_add: UserMap<Vec<PyRule>>) -> Result<UserMap<Vec<RuleId>>> {
 }
 
 /// Insert one or more slots into the slot list.
+///
 /// Returns the generated IDs of the newly created slots in the order they were provided.
 ///
 /// Argument must be an array, even if only adding one.
@@ -544,6 +547,7 @@ pub fn add_slots(to_add: Vec<PySlot>) -> Result<Vec<SlotId>> {
 }
 
 /// Insert one or more tasks into the user table.
+///
 /// Returns the generated IDs of the newly created tasks in the order they were provided.
 ///
 /// Argument must be an array, even if only adding one.
@@ -594,6 +598,7 @@ pub fn add_tasks(to_add: Vec<PyTask>) -> Result<Vec<TaskId>> {
 }
 
 /// Insert one or more users into the user table.
+///
 /// Returns the generated IDs of the newly created users in the order they were provided.
 ///
 /// Argument must be an array, even if only adding one.
@@ -630,6 +635,7 @@ pub struct RuleFilter {
 }
 
 /// Returns an dictionary of all current availability rules associated with each user, filtered by the parameters.
+///
 /// Users that do not exist will be missing from the returned dictionary.
 ///
 /// Each filter parameter is combined as "and" (tasks must satisfy *all* conditions to be included).
@@ -865,7 +871,9 @@ pub fn get_users(filter: UserFilter) -> Result<UserMap<PyUser>> {
         .collect())
 }
 
-/// Removes one or more rules from one or more users, returning a collection of all failed removals.
+/// Removes one or more rules from one or more users.
+///
+/// Returns a collection of all failed removals.
 /// If all requested removals were successful, the list will be empty.
 ///
 /// Argument must be an array, even if only removing one.
@@ -888,7 +896,9 @@ pub fn pop_rules(to_pop: UserMap<RuleSet>) -> Result<UserMap<RuleSet>> {
         .collect())
 }
 
-/// Removes slots by ID, returning a list of any IDs that failed to be removed (ex: slot with that ID did not exist).
+/// Removes slots by ID.
+///
+/// Returns a list of any IDs that failed to be removed (ex: slot with that ID did not exist).
 /// If all requested removals were successful, the list will be empty.
 ///
 /// Argument must be an array, even if only removing one.
@@ -902,7 +912,9 @@ pub fn pop_slots(mut to_pop: SlotSet) -> Result<SlotSet> {
     Ok(to_pop)
 }
 
-/// Removes tasks by ID, returning a list of any IDs that failed to be removed (ex: task with that ID did not exist).
+/// Removes tasks by ID.
+///
+/// Returns a list of any IDs that failed to be removed (ex: task with that ID did not exist).
 /// If all requested removals were successful, the list will be empty.
 ///
 /// Argument must be an array, even if only removing one.
@@ -916,7 +928,9 @@ pub fn pop_tasks(mut to_pop: TaskSet) -> Result<TaskSet> {
     Ok(to_pop)
 }
 
-/// Removes users by ID, returning a list of any IDs that failed to be removed (ex: user with that ID did not exist).
+/// Removes users by ID.
+///
+/// Returns a list of any IDs that failed to be removed (ex: user with that ID did not exist).
 /// If all requested removals were successful, the list will be empty.
 ///
 /// Argument must be an array, even if only adding one.
