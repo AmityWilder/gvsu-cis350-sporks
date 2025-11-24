@@ -910,6 +910,321 @@ pub fn get_users(filter: UserFilter) -> Result<UserMap<PyUser>> {
         .collect())
 }
 
+/// A change to a set ([`HashSet`](std::collections::HashSet) or [`BTreeSet`](std::collections::BTreeSet)).
+#[derive(Debug, Clone, Deserialize)]
+pub struct KeySetDelta<K: Eq + std::hash::Hash> {
+    /// Key(s) to be removed from the set.
+    #[serde(default = "Default::default")]
+    pub delete: FxHashSet<K>,
+
+    /// Key(s) to be added to the set.
+    #[serde(default = "Default::default")]
+    pub create: Vec<K>,
+}
+
+impl<K: Eq + std::hash::Hash> Default for KeySetDelta<K> {
+    fn default() -> Self {
+        Self {
+            delete: Default::default(),
+            create: Default::default(),
+        }
+    }
+}
+
+impl<K: Eq + std::hash::Hash> KeySetDelta<K> {
+    fn apply(&mut self, target: &mut FxHashSet<K>) {
+        target.retain(|k| !self.delete.remove(k));
+        target.extend(std::mem::take(&mut self.create));
+    }
+}
+
+/// A change to a collection that cannot create new elements, only remove or modify.
+#[derive(Debug, Clone, Deserialize)]
+pub struct NoGrowSetDelta<K: Eq + std::hash::Hash, V> {
+    /// Key(s) to be removed from the collection.
+    #[serde(default = "Default::default")]
+    pub delete: FxHashSet<K>,
+
+    /// Key(s) in the collection to be replaced with new value(s).
+    #[serde(default = "Default::default")]
+    pub update: FxHashMap<K, V>,
+}
+
+impl<K: Eq + std::hash::Hash, V> Default for NoGrowSetDelta<K, V> {
+    fn default() -> Self {
+        Self {
+            delete: Default::default(),
+            update: Default::default(),
+        }
+    }
+}
+
+impl<K: Eq + std::hash::Hash, V> NoGrowSetDelta<K, V> {
+    #[allow(dead_code, reason = "future-proof")]
+    fn apply(&mut self, target: &mut FxHashMap<K, V>) {
+        target.retain(|k, v| {
+            if self.delete.remove(k) {
+                false
+            } else {
+                if let Some(replacement) = self.update.remove(k) {
+                    *v = replacement;
+                }
+                true
+            }
+        });
+    }
+}
+
+/// A change to a collection.
+#[derive(Debug, Clone, Deserialize)]
+pub struct SetDelta<K: Eq + std::hash::Hash, V, U = (K, V)> {
+    /// Key(s) to be removed from the collection.
+    #[serde(default = "Default::default")]
+    pub delete: FxHashSet<K>,
+
+    /// Value(s) to be added to the collection.
+    #[serde(default = "Default::default")]
+    pub create: Vec<U>,
+
+    /// Key(s) in the collection to be replaced with new value(s).
+    #[serde(default = "Default::default")]
+    pub update: FxHashMap<K, V>,
+}
+
+impl<K: Eq + std::hash::Hash, V, U> Default for SetDelta<K, V, U> {
+    fn default() -> Self {
+        Self {
+            delete: Default::default(),
+            create: Default::default(),
+            update: Default::default(),
+        }
+    }
+}
+
+impl<K: Eq + std::hash::Hash, V> SetDelta<K, V, (K, V)> {
+    fn apply(&mut self, target: &mut FxHashMap<K, V>) {
+        target.retain(|k, v| {
+            if self.delete.remove(k) {
+                false
+            } else {
+                if let Some(replacement) = self.update.remove(k) {
+                    *v = replacement;
+                }
+                true
+            }
+        });
+        target.extend(std::mem::take(&mut self.create));
+    }
+}
+
+/// A [`SetDelta`] for sets where the key is auto-generated and thus left unspecified for [`SetDelta::create`] mode.
+/// Example: pushing to a [`Vec`].
+pub type AutoIdSetDelta<K, V> = SetDelta<K, V, V>;
+
+/// [`None`] to ignore and keep existing value.
+/// [`Some`] to replace the value.
+pub type Update<T> = Option<T>;
+
+trait ApplyUpdate {
+    type Target;
+
+    fn apply(self, target: &mut Self::Target);
+}
+
+impl<T> ApplyUpdate for Update<T> {
+    type Target = T;
+
+    #[inline]
+    fn apply(self, target: &mut T) {
+        if let Some(new_value) = self {
+            *target = new_value;
+        }
+    }
+}
+
+/// A mutation request for a [`Rule`].
+#[derive(Debug, Clone, Deserialize)]
+pub struct RuleDelta {
+    /// See [`Rule::include`]
+    #[serde(default)]
+    pub include: AutoIdSetDelta<usize, TimeInterval>,
+
+    /// See [`Rule::rep`]
+    #[serde(default)]
+    pub rep: Update<Option<Repetition>>,
+
+    /// See [`Rule::pref`]
+    #[serde(default)]
+    pub pref: Update<Preference>,
+}
+
+/// A mutation request for a [`Slot`].
+#[derive(Debug, Clone, Deserialize)]
+pub struct SlotDelta {
+    /// See [`Slot::interval`]
+    #[serde(default)]
+    pub interval: Update<TimeInterval>,
+
+    /// See [`Slot::min_staff`]
+    #[serde(default)]
+    pub min_staff: Update<Option<NonZeroUsize>>,
+
+    /// See [`Slot::name`]
+    #[serde(default)]
+    pub name: Update<String>,
+}
+
+/// Mutate [`Slot`]s.
+///
+/// Returns a collection of all failed changes.
+/// If all requested changes were successful, the list will be empty.
+pub fn mut_slots(delta: SlotMap<SlotDelta>) -> Result<SlotSet> {
+    let mut slots = SLOTS.write();
+    Ok(delta
+        .into_iter()
+        .filter_map(|(slot_id, delta)| {
+            if let Some(slot) = slots.get_mut(&slot_id) {
+                delta.interval.apply(&mut slot.interval);
+                delta.min_staff.apply(&mut slot.min_staff);
+                delta.name.apply(&mut slot.name);
+                None
+            } else {
+                Some(slot_id)
+            }
+        })
+        .collect())
+}
+
+/// A mutation request for a [`Task`].
+#[derive(Debug, Clone, Deserialize)]
+pub struct TaskDelta {
+    /// See [`Task::title`]
+    #[serde(default)]
+    pub title: Update<String>,
+
+    /// See [`Task::desc`]
+    #[serde(default)]
+    pub desc: Update<String>,
+
+    /// See [`Task::skills`]
+    #[serde(default)]
+    pub skills: SetDelta<SkillId, ProficiencyReq>,
+
+    /// See [`Task::deadline`]
+    #[serde(default)]
+    pub deadline: Update<Option<DateTime<Utc>>>,
+
+    /// See [`Task::deps`]
+    #[serde(default)]
+    pub deps: KeySetDelta<TaskId>,
+}
+
+/// Mutate [`Task`]s.
+///
+/// Returns a collection of all failed changes.
+/// If all requested changes were successful, the list will be empty.
+pub fn mut_tasks(delta: TaskMap<TaskDelta>) -> Result<TaskSet> {
+    let mut tasks = TASKS.write();
+    Ok(delta
+        .into_iter()
+        .filter_map(|(task_id, mut delta)| {
+            if let Some(task) = tasks.get_mut(&task_id) {
+                delta.title.apply(&mut task.title);
+                delta.desc.apply(&mut task.desc);
+                delta.skills.apply(&mut task.skills);
+                delta.deadline.apply(&mut task.deadline);
+                delta.deps.apply(&mut task.deps);
+                None
+            } else {
+                Some(task_id)
+            }
+        })
+        .collect())
+}
+
+/// A mutation request for a [`User`].
+#[derive(Debug, Clone, Deserialize)]
+pub struct UserDelta {
+    /// See [`User::name`]
+    #[serde(default)]
+    pub name: Update<String>,
+
+    /// Cannot grow. Use [`add_rules`] to create new rules.
+    ///
+    /// **Reasoning:**
+    /// Newly created [`Rule`]s would become inaccessible because
+    /// successful items do not have their IDs returned by `mut_` methods.
+    ///
+    /// See [`User::availability`]
+    #[serde(default)]
+    pub availability: NoGrowSetDelta<RuleId, RuleDelta>,
+
+    /// See [`User::user_prefs`]
+    #[serde(default)]
+    pub user_prefs: SetDelta<UserId, Preference>,
+
+    /// See [`User::skills`]
+    #[serde(default)]
+    pub skills: SetDelta<SkillId, Proficiency>,
+}
+
+/// Mutate [`User`]s.
+///
+/// Returns a collection of all failed changes.
+/// If all requested changes were successful, the list will be empty.
+pub fn mut_users(delta: UserMap<UserDelta>) -> Result<UserMap<RuleSet>> {
+    let mut users = USERS.write();
+    Ok(delta
+        .into_iter()
+        .filter_map(|(user_id, mut delta)| {
+            if let Some(user) = users.get_mut(&user_id) {
+                delta.name.apply(&mut user.name);
+                {
+                    let NoGrowSetDelta { delete, update } = &mut delta.availability;
+                    user.availability.retain(|k, rule| {
+                        if delete.remove(k) {
+                            false
+                        } else {
+                            if let Some(delta) = update.remove(k) {
+                                {
+                                    let SetDelta {
+                                        mut delete,
+                                        create,
+                                        mut update,
+                                    } = delta.include;
+                                    let mut it = 0..;
+                                    rule.include.retain(|v| {
+                                        let i = it.next().unwrap();
+                                        if delete.remove(&i) {
+                                            false
+                                        } else {
+                                            if let Some(replacement) = update.remove(&i) {
+                                                *v = replacement;
+                                            }
+                                            true
+                                        }
+                                    });
+                                    rule.include.extend(create);
+                                }
+                                if let Some(new_value) = delta.rep {
+                                    rule.rep = new_value;
+                                }
+                                if let Some(new_value) = delta.pref {
+                                    rule.pref = new_value;
+                                }
+                            }
+                            true
+                        }
+                    });
+                }
+                delta.user_prefs.apply(&mut user.user_prefs);
+                delta.skills.apply(&mut user.skills);
+            }
+            todo!()
+        })
+        .collect())
+}
+
 /// Removes one or more rules from one or more users.
 ///
 /// Returns a collection of all failed removals.
@@ -1145,6 +1460,11 @@ pub(crate) fn register(server: &mut Server) {
     server.register_simple("get_slots", get_slots);
     server.register_simple("get_tasks", get_tasks);
     server.register_simple("get_users", get_users);
+
+    // rules can be mutated through `availability` field of `mut_users`
+    server.register_simple("mut_slots", mut_slots);
+    server.register_simple("mut_tasks", mut_tasks);
+    server.register_simple("mut_users", mut_users);
 
     server.register_simple("pop_rules", pop_rules);
     server.register_simple("pop_slots", pop_slots);
