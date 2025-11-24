@@ -4,7 +4,7 @@
 //! Additionally, many backend types have non-[`None`] "None-like" values (such as empty strings).
 
 use crate::data::*;
-use chrono::{DateTime, Utc};
+use chrono::NaiveDateTime;
 use parking_lot::RwLock;
 use regex::Regex;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -132,6 +132,45 @@ impl Pattern {
     }
 }
 
+/// A range of time, mainly intended for shifts.
+pub struct PyTimeInterval {
+    /// Beginning of the interval
+    pub start: NaiveDateTime,
+
+    /// Conclusion of the interval
+    pub end: NaiveDateTime,
+}
+
+impl From<TimeInterval> for PyTimeInterval {
+    fn from(value: TimeInterval) -> Self {
+        From::from(&value)
+    }
+}
+
+impl From<&TimeInterval> for PyTimeInterval {
+    fn from(value: &TimeInterval) -> Self {
+        Self {
+            start: value.start.naive_utc(),
+            end: value.end.naive_utc(),
+        }
+    }
+}
+
+impl From<PyTimeInterval> for TimeInterval {
+    fn from(value: PyTimeInterval) -> Self {
+        From::from(&value)
+    }
+}
+
+impl From<&PyTimeInterval> for TimeInterval {
+    fn from(value: &PyTimeInterval) -> Self {
+        Self {
+            start: value.start.and_utc(),
+            end: value.end.and_utc(),
+        }
+    }
+}
+
 /// Once every `n` units. Fields are added together.
 /// [`None`] and `0` are equivalent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -195,10 +234,10 @@ pub struct PyRep {
     pub every: PyFreq,
 
     /// When the repetition begins.
-    pub start: DateTime<Utc>,
+    pub start: NaiveDateTime,
 
     /// When the repetition should end. [`None`] if permanent.
-    pub until: Option<DateTime<Utc>>,
+    pub until: Option<NaiveDateTime>,
 }
 
 impl From<PyRep> for Repetition {
@@ -211,8 +250,8 @@ impl From<PyRep> for Repetition {
         } = value;
         Self {
             every: every.into(),
-            start,
-            until,
+            start: start.and_utc(),
+            until: until.map(|x| x.and_utc()),
         }
     }
 }
@@ -227,8 +266,8 @@ impl From<Repetition> for PyRep {
         } = value;
         Self {
             every: every.into(),
-            start,
-            until,
+            start: start.naive_utc(),
+            until: until.map(|x| x.naive_utc()),
         }
     }
 }
@@ -310,10 +349,10 @@ impl From<&Rule> for (RuleId, PyRule) {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PySlot {
     /// Beginning of the slot
-    pub start: DateTime<Utc>,
+    pub start: NaiveDateTime,
 
     /// Conclusion of the slot
-    pub end: DateTime<Utc>,
+    pub end: NaiveDateTime,
 
     /// The minimum number of [`User`]s that must be assigned to the slot
     pub min_staff: Option<usize>,
@@ -333,7 +372,10 @@ impl From<(SlotId, PySlot)> for Slot {
         } = slot;
         Self {
             id,
-            interval: TimeInterval { start, end },
+            interval: TimeInterval {
+                start: start.and_utc(),
+                end: end.and_utc(),
+            },
             min_staff: min_staff.and_then(NonZeroUsize::new),
             name: name.unwrap_or_default(),
         }
@@ -352,8 +394,8 @@ impl From<Slot> for (SlotId, PySlot) {
         (
             id,
             PySlot {
-                start,
-                end,
+                start: start.naive_utc(),
+                end: end.naive_utc(),
                 min_staff: min_staff.map(NonZeroUsize::get),
                 name: (!name.is_empty()).then_some(name),
             },
@@ -379,7 +421,7 @@ pub struct PyTask {
 
     /// When the task should be completed by
     /// ([`None`] if no deadline)
-    pub deadline: Option<DateTime<Utc>>,
+    pub deadline: Option<NaiveDateTime>,
 
     /// Tasks that must be completed before this one can start
     pub awaiting: Option<TaskSet>,
@@ -396,7 +438,7 @@ impl From<(TaskId, PyTask)> for Task {
             title,
             desc: task.desc.unwrap_or_default(),
             skills: FxHashMap::default(),
-            deadline,
+            deadline: deadline.map(|x| x.and_utc()),
             deps: task.awaiting.map(FxHashSet::from_iter).unwrap_or_default(),
         }
     }
@@ -418,7 +460,7 @@ impl From<Task> for (TaskId, PyTask) {
             PyTask {
                 title,
                 desc: (!desc.is_empty()).then_some(desc),
-                deadline,
+                deadline: deadline.map(|x| x.naive_utc()),
                 awaiting: (!deps.is_empty()).then(|| deps.clone()),
             },
         )
@@ -441,7 +483,7 @@ impl From<&Task> for (TaskId, PyTask) {
             PyTask {
                 title: title.clone(),
                 desc: (!desc.is_empty()).then(|| desc.clone()),
-                deadline: *deadline,
+                deadline: deadline.map(|x| x.naive_utc()),
                 awaiting: (!deps.is_empty()).then(|| deps.iter().copied().collect()),
             },
         )
@@ -721,16 +763,16 @@ pub struct SlotFilter {
     pub ids: Option<SlotSet>,
 
     /// The ealiest datetime the [`Slot`] can start at.
-    pub starting_after: Option<DateTime<Utc>>,
+    pub starting_after: Option<NaiveDateTime>,
 
     /// The latest datetime the [`Slot`] can start at.
-    pub starting_before: Option<DateTime<Utc>>,
+    pub starting_before: Option<NaiveDateTime>,
 
     /// The ealiest datetime the [`Slot`] can end at.
-    pub ending_after: Option<DateTime<Utc>>,
+    pub ending_after: Option<NaiveDateTime>,
 
     /// The latest datetime the [`Slot`] can end at.
-    pub ending_before: Option<DateTime<Utc>>,
+    pub ending_before: Option<NaiveDateTime>,
 
     /// The least staff the [`Slot`] can require (0 is equivalent to [`None`]).
     pub min_staff_min: Option<usize>,
@@ -785,10 +827,10 @@ pub fn get_slots(filter: SlotFilter) -> Result<SlotMap<PySlot>> {
         .read()
         .values()
         .filter(|slot| {
-            starting_before.is_none_or(|x| slot.start <= x)
-                && starting_after.is_none_or(|x| slot.start >= x)
-                && ending_before.is_none_or(|x| slot.end <= x)
-                && ending_after.is_none_or(|x| slot.end >= x)
+            starting_before.is_none_or(|x| slot.start <= x.and_utc())
+                && starting_after.is_none_or(|x| slot.start >= x.and_utc())
+                && ending_before.is_none_or(|x| slot.end <= x.and_utc())
+                && ending_after.is_none_or(|x| slot.end >= x.and_utc())
                 && min_staff_min.is_none_or(|x| slot.min_staff.map_or(0, NonZeroUsize::get) >= x)
                 && min_staff_max.is_none_or(|x| slot.min_staff.map_or(0, NonZeroUsize::get) <= x)
                 // note that None => "do not filter", which is distinct from {} => "never"
@@ -813,10 +855,10 @@ pub struct TaskFilter {
     pub desc_pat: Option<Pattern>,
 
     /// The ealiest datetime the [`Task::deadline`] can be.
-    pub deadline_after: Option<DateTime<Utc>>,
+    pub deadline_after: Option<NaiveDateTime>,
 
     /// The latest datetime the [`Task::deadline`] can be.
-    pub deadline_before: Option<DateTime<Utc>>,
+    pub deadline_before: Option<NaiveDateTime>,
 }
 
 /// Returns a dictionary of all current tasks, filtered by the parameters.
@@ -859,9 +901,9 @@ pub fn get_tasks(filter: TaskFilter) -> Result<TaskMap<PyTask>> {
         .values()
         .filter(|task| {
             // lack of deadline is equivalent to infinite deadline. there exists no inf<=datetime.
-            deadline_before.is_none_or(|x| task.deadline.is_some_and(|d| d <= x))
+            deadline_before.is_none_or(|x| task.deadline.is_some_and(|d| d <= x.and_utc()))
                 // lack of deadline is equivalent to infinite deadline. every no datetime<=inf.
-                && deadline_after.is_none_or(|x| task.deadline.is_none_or(|d| d >= x))
+                && deadline_after.is_none_or(|x| task.deadline.is_none_or(|d| d >= x.and_utc()))
                 // note that None => "do not filter", which is distinct from {} => "never"
                 && ids.is_none_or(|x| x.contains(&task.id))
                 && title_pat.is_none_or(|x| x.is_match(&task.title))
@@ -1090,7 +1132,7 @@ pub struct TaskDelta {
 
     /// See [`Task::deadline`]
     #[serde(default)]
-    pub deadline: Update<Option<DateTime<Utc>>>,
+    pub deadline: Update<Option<NaiveDateTime>>,
 
     /// See [`Task::deps`]
     #[serde(default)]
@@ -1110,7 +1152,11 @@ pub fn mut_tasks(delta: TaskMap<TaskDelta>) -> Result<TaskSet> {
                 delta.title.apply(&mut task.title);
                 delta.desc.apply(&mut task.desc);
                 delta.skills.apply(&mut task.skills);
-                delta.deadline.apply(&mut task.deadline);
+                delta
+                    .deadline
+                    .as_ref()
+                    .map(|x| x.as_ref().map(|x| x.and_utc()))
+                    .apply(&mut task.deadline);
                 delta.deps.apply(&mut task.deps);
                 None
             } else {
