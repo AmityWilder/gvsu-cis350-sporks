@@ -10,10 +10,33 @@ def open_server(build: Literal["debug", "release"], socket: str = "127.0.0.1:808
     socket=SocketAddr - The socket to listen at.
     """
     # open the server in parallel
-    srv = subprocess.Popen([f"./target/{build}/gvsu-cis350-sporks", socket])
-    time.sleep(0.01) # wait for the server to be open
+    try:
+        srv = subprocess.Popen([f"./target/{build}/gvsu-cis350-sporks", socket])
+    except xmlrpc.client.Fault as fault:
+        print(f"intercepted: {fault}")
+        raise fault
+    # wait for the server to be open
+    waited = 0
+    while True:
+        try:
+            proxy = ProxyWrapper(f"http://{socket}", allow_none=True, use_datetime=False, use_builtin_types=True)
+            waited = 0
+            while True:
+                try:
+                    proxy.wipe_slots({})
+                    break
+                except:
+                    time.sleep(0.01)
+                    waited += 0.01
+                    if waited >= 1:
+                        raise
+            break
+        except:
+            time.sleep(0.01)
+            waited += 0.01
+            if waited >= 1:
+                raise
 
-    proxy = ProxyWrapper(f"http://{socket}", allow_none=True, use_datetime=False, use_builtin_types=True)
 
     def close_server():
         print("attempting to close server")
