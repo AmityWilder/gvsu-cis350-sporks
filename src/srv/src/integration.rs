@@ -1182,12 +1182,8 @@ pub fn mut_users(delta: UserMap<UserDelta>) -> Result<UserMap<RuleSet>> {
                                 });
                                 rule.include.extend(create);
                             }
-                            if let Some(new_value) = delta.rep {
-                                rule.rep = new_value;
-                            }
-                            if let Some(new_value) = delta.pref {
-                                rule.pref = new_value;
-                            }
+                            delta.rep.apply(&mut rule.rep);
+                            delta.pref.apply(&mut rule.pref);
                         }
                     }
                 }
