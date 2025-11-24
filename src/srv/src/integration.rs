@@ -176,24 +176,31 @@ impl From<&PyTimeInterval> for TimeInterval {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PyFreq {
     /// Repeat every `n` seconds.
+    #[serde(default)]
     pub seconds: Option<u8>,
 
     /// Repeat every `n` minutes.
+    #[serde(default)]
     pub minutes: Option<u8>,
 
     /// Repeat every `n` hours.
+    #[serde(default)]
     pub hours: Option<u8>,
 
     /// Repeat every `n` days.
+    #[serde(default)]
     pub days: Option<u8>,
 
     /// Repeat every `n` weeks.
+    #[serde(default)]
     pub weeks: Option<u8>,
 
     /// Repeat every `n` months.
+    #[serde(default)]
     pub months: Option<u8>,
 
     /// Repeat every `n` years.
+    #[serde(default)]
     pub years: Option<u16>,
 }
 
@@ -417,13 +424,16 @@ pub struct PyTask {
     pub title: String,
 
     /// The task description
+    #[serde(default)]
     pub desc: Option<String>,
 
     /// When the task should be completed by
     /// ([`None`] if no deadline)
+    #[serde(default)]
     pub deadline: Option<NaiveDateTime>,
 
     /// Tasks that must be completed before this one can start
+    #[serde(default)]
     pub awaiting: Option<TaskSet>,
 }
 
@@ -684,12 +694,15 @@ pub fn add_users(to_add: Vec<PyUser>) -> Result<Vec<UserId>> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuleFilter {
     /// A whitelist of the exact [`Rule::id`]s that should be included.
+    #[serde(default)]
     pub ids: Option<RuleSet>,
 
     /// The least preference the [`Rule`] can require.
+    #[serde(default)]
     pub min_pref: Option<f32>,
 
     /// The greatest preference the [`Rule`] can require.
+    #[serde(default)]
     pub max_pref: Option<f32>,
 }
 
@@ -760,27 +773,35 @@ pub fn get_rules(filter: UserMap<RuleFilter>) -> Result<UserMap<RuleMap<PyRule>>
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SlotFilter {
     /// A whitelist of the exact [`Slot::id`]s that should be included.
+    #[serde(default)]
     pub ids: Option<SlotSet>,
 
     /// The ealiest datetime the [`Slot`] can start at.
+    #[serde(default)]
     pub starting_after: Option<NaiveDateTime>,
 
     /// The latest datetime the [`Slot`] can start at.
+    #[serde(default)]
     pub starting_before: Option<NaiveDateTime>,
 
     /// The ealiest datetime the [`Slot`] can end at.
+    #[serde(default)]
     pub ending_after: Option<NaiveDateTime>,
 
     /// The latest datetime the [`Slot`] can end at.
+    #[serde(default)]
     pub ending_before: Option<NaiveDateTime>,
 
     /// The least staff the [`Slot`] can require (0 is equivalent to [`None`]).
+    #[serde(default)]
     pub min_staff_min: Option<usize>,
 
     /// The greatest staff the [`Slot`] can require (0 is equivalent to [`None`]).
+    #[serde(default)]
     pub min_staff_max: Option<usize>,
 
     /// A [`Pattern`] the [`Slot::name`] must [match](Pattern::is_match).
+    #[serde(default)]
     pub name_pat: Option<Pattern>,
 }
 
@@ -846,18 +867,23 @@ pub fn get_slots(filter: SlotFilter) -> Result<SlotMap<PySlot>> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskFilter {
     /// A whitelist of the exact [`Task::id`]s that should be included.
+    #[serde(default)]
     pub ids: Option<TaskSet>,
 
     /// A [`Pattern`] the [`Task::title`] must [match](Pattern::is_match).
+    #[serde(default)]
     pub title_pat: Option<Pattern>,
 
     /// A [`Pattern`] the [`Task::desc`] must [match](Pattern::is_match).
+    #[serde(default)]
     pub desc_pat: Option<Pattern>,
 
     /// The ealiest datetime the [`Task::deadline`] can be.
+    #[serde(default)]
     pub deadline_after: Option<NaiveDateTime>,
 
     /// The latest datetime the [`Task::deadline`] can be.
+    #[serde(default)]
     pub deadline_before: Option<NaiveDateTime>,
 }
 
@@ -917,9 +943,11 @@ pub fn get_tasks(filter: TaskFilter) -> Result<TaskMap<PyTask>> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserFilter {
     /// A whitelist of the exact [`User::id`]s that should be included.
+    #[serde(default)]
     pub ids: Option<Vec<UserId>>,
 
     /// A [`Pattern`] the [`User::name`] must [match](Pattern::is_match).
+    #[serde(default)]
     pub name_pat: Option<Pattern>,
 }
 
