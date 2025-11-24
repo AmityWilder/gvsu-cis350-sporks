@@ -959,22 +959,6 @@ impl<K: Eq + std::hash::Hash, V> Default for NoGrowSetDelta<K, V> {
     }
 }
 
-impl<K: Eq + std::hash::Hash, V> NoGrowSetDelta<K, V> {
-    #[allow(dead_code, reason = "future-proof")]
-    fn apply(&mut self, target: &mut FxHashMap<K, V>) {
-        target.retain(|k, v| {
-            if self.delete.remove(k) {
-                false
-            } else {
-                if let Some(replacement) = self.update.remove(k) {
-                    *v = replacement;
-                }
-                true
-            }
-        });
-    }
-}
-
 /// A change to a collection.
 #[derive(Debug, Clone, Deserialize)]
 pub struct SetDelta<K: Eq + std::hash::Hash, V, U = (K, V)> {
@@ -1003,16 +987,10 @@ impl<K: Eq + std::hash::Hash, V, U> Default for SetDelta<K, V, U> {
 
 impl<K: Eq + std::hash::Hash, V> SetDelta<K, V, (K, V)> {
     fn apply(&mut self, target: &mut FxHashMap<K, V>) {
-        target.retain(|k, v| {
-            if self.delete.remove(k) {
-                false
-            } else {
-                if let Some(replacement) = self.update.remove(k) {
-                    *v = replacement;
-                }
-                true
-            }
-        });
+        target.retain(|k, _| !self.delete.remove(k));
+        for (k, v) in target.iter_mut() {
+            self.update.remove(k).apply(v);
+        }
         target.extend(std::mem::take(&mut self.create));
     }
 }
@@ -1181,41 +1159,37 @@ pub fn mut_users(delta: UserMap<UserDelta>) -> Result<UserMap<RuleSet>> {
                 delta.name.apply(&mut user.name);
                 {
                     let NoGrowSetDelta { delete, update } = &mut delta.availability;
-                    user.availability.retain(|k, rule| {
-                        if delete.remove(k) {
-                            false
-                        } else {
-                            if let Some(delta) = update.remove(k) {
-                                {
-                                    let SetDelta {
-                                        mut delete,
-                                        create,
-                                        mut update,
-                                    } = delta.include;
-                                    let mut it = 0..;
-                                    rule.include.retain(|v| {
-                                        let i = it.next().unwrap();
-                                        if delete.remove(&i) {
-                                            false
-                                        } else {
-                                            if let Some(replacement) = update.remove(&i) {
-                                                *v = replacement;
-                                            }
-                                            true
+                    user.availability.retain(|k, _| !delete.remove(k));
+                    for (k, rule) in &mut user.availability {
+                        if let Some(delta) = update.remove(k) {
+                            {
+                                let SetDelta {
+                                    mut delete,
+                                    create,
+                                    mut update,
+                                } = delta.include;
+                                let mut it = 0..;
+                                rule.include.retain(|v| {
+                                    let i = it.next().unwrap();
+                                    if delete.remove(&i) {
+                                        false
+                                    } else {
+                                        if let Some(replacement) = update.remove(&i) {
+                                            *v = replacement;
                                         }
-                                    });
-                                    rule.include.extend(create);
-                                }
-                                if let Some(new_value) = delta.rep {
-                                    rule.rep = new_value;
-                                }
-                                if let Some(new_value) = delta.pref {
-                                    rule.pref = new_value;
-                                }
+                                        true
+                                    }
+                                });
+                                rule.include.extend(create);
                             }
-                            true
+                            if let Some(new_value) = delta.rep {
+                                rule.rep = new_value;
+                            }
+                            if let Some(new_value) = delta.pref {
+                                rule.pref = new_value;
+                            }
                         }
-                    });
+                    }
                 }
                 delta.user_prefs.apply(&mut user.user_prefs);
                 delta.skills.apply(&mut user.skills);
