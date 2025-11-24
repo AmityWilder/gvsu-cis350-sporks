@@ -1,4 +1,7 @@
 //! Integration functions for communicating with the Python frontend
+//!
+//! The main reason for the `Py...` types is so that structures without IDs can be passed.
+//! Additionally, many backend types have non-[`None`] "None-like" values (such as empty strings).
 
 use crate::data::*;
 use chrono::{DateTime, Utc};
@@ -480,7 +483,7 @@ impl From<&User> for (UserId, PyUser) {
 ///
 /// If a provided user does not exist, those rules will not be created and that user will be missing from the returned dictionary.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def add_rules(to_add: dict[
 ///   UserId,
@@ -516,7 +519,7 @@ pub fn add_rules(to_add: UserMap<Vec<PyRule>>) -> Result<UserMap<Vec<RuleId>>> {
 ///
 /// Argument must be an array, even if only adding one.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def add_slots(list[{
 ///   'start': datetime,
@@ -552,7 +555,7 @@ pub fn add_slots(to_add: Vec<PySlot>) -> Result<Vec<SlotId>> {
 ///
 /// Argument must be an array, even if only adding one.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def add_tasks(to_add: list[{
 ///   'title': str,
@@ -603,7 +606,7 @@ pub fn add_tasks(to_add: Vec<PyTask>) -> Result<Vec<TaskId>> {
 ///
 /// Argument must be an array, even if only adding one.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def add_users(to_add: list[{'name': str}]) -> list[UserId];
 /// ```
@@ -641,7 +644,7 @@ pub struct RuleFilter {
 /// Each filter parameter is combined as "and" (tasks must satisfy *all* conditions to be included).
 /// Parameters that are [`None`] will be ignored.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def get_rules(filter: dict[UserId, TODO]) -> list[(
 ///   {
@@ -716,7 +719,7 @@ pub struct SlotFilter {
 /// Patterns should use `^$` (match start followed immediately by end) to match against empty names,
 /// as an empty pattern will always match (the empty set is a subset of every set).
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def get_slots(filter: {
 ///   'ids': set[SlotId] | None,
@@ -786,7 +789,7 @@ pub struct TaskFilter {
 /// Each filter parameter is combined as "and" (tasks must satisfy *all* conditions to be included).
 /// Parameters that are [`None`] will be ignored.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def get_tasks(filter: {
 ///   'ids': set[TaskId] | None,
@@ -847,7 +850,7 @@ pub struct UserFilter {
 /// Each filter parameter is combined as "and" (users must satisfy *all* conditions to be included).
 /// Parameters that are `None` will be ignored.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def get_users(filter: {
 ///   'ids': list[UserId] | None,
@@ -878,7 +881,7 @@ pub fn get_users(filter: UserFilter) -> Result<UserMap<PyUser>> {
 ///
 /// Argument must be an array, even if only removing one.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def pop_rules(to_pop: dict[UserId, set[RuleId]]) -> dict[UserId, set[RuleId]];
 /// ```
@@ -903,7 +906,7 @@ pub fn pop_rules(to_pop: UserMap<RuleSet>) -> Result<UserMap<RuleSet>> {
 ///
 /// Argument must be an array, even if only removing one.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def pop_slots(to_pop: set[SlotId]) -> set[SlotId];
 /// ```
@@ -919,7 +922,7 @@ pub fn pop_slots(mut to_pop: SlotSet) -> Result<SlotSet> {
 ///
 /// Argument must be an array, even if only removing one.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def pop_tasks(to_pop: set[TaskId]) -> set[TaskId];
 /// ```
@@ -935,7 +938,7 @@ pub fn pop_tasks(mut to_pop: TaskSet) -> Result<TaskSet> {
 ///
 /// Argument must be an array, even if only adding one.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def pop_users(to_pop: set[UserId]) -> set[UserId];
 /// ```
@@ -946,7 +949,7 @@ pub fn pop_users(mut to_pop: UserSet) -> Result<UserSet> {
 
 /// Close the server after completing all ongoing tasks.
 ///
-/// # Syntax
+/// # Signature
 /// ```py
 /// def quit(_: {}) -> None;
 /// ```
