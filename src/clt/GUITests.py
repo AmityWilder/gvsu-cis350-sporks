@@ -52,7 +52,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     #removes focus
     #root.bind_all("<Button-1>", lambda event: event.widget.focus_set())
     root.title("Spork Scheduler")
-    root.geometry("1100x480")
+    root.geometry("1100x550")
     
 
 
