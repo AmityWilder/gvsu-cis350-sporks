@@ -78,6 +78,7 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
 
     # frames
     shift_center=ttk.Frame(tab1)
+    shift_under=ttk.Frame(tab1)
     shift_table=ttk.Frame(tab1)
     shiftcanvas=tk.Canvas(shift_table)
     sfttable=ttk.Frame(shiftcanvas)
@@ -130,11 +131,17 @@ with xmlrpc.client.ServerProxy("http://127.0.0.1:8080") as proxy:
     
 
     shifttab=Table(sfttable,shiftcanvas,shift_center,sft_lst)
-    ttk.Label(shift_center,text='Dates must be in ******* format',font=('Arial',12,'bold')).grid(row=1, pady=10)
+    
+    ttk.Label(shift_under,text='Dates must be in ******* format',font=('Arial',12,'bold')).grid(row=1, column = 1,pady=10, padx=10)
+    ttk.Label(shift_under,text='Name of shift',font=('Arial',12)).grid(row=2, column=0, padx=60)
+    ttk.Label(shift_under,text='Start time/date for shift',font=('Arial',12)).grid(row=2, column=1, padx=10)
+    ttk.Label(shift_under,text='End time/date for shift',font=('Arial',12)).grid(row=2, column=2, padx=10)
+    ttk.Label(shift_under,text='Minimum number of employees',font=('Arial',12)).grid(row=2, column=3, padx=10)
     sftsave=ttk.Button(sft_bottom,text='Save',command=lambda:saving(proxy,shifttab,'shift'))
     sftsave.pack(side=tk.BOTTOM)
 
-    shift_center.pack(fill='x')
+    shift_center.pack()
+    shift_under.pack(fill='x')
     shift_table.pack(pady=20, padx=75, fill='x')
     sft_bottom.pack()
 
