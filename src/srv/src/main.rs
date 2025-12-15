@@ -2,6 +2,10 @@
 //!
 //! A management scheduling application (generator end; executed by backend)
 
+<<<<<<< HEAD
+=======
+#![feature(integer_atomics)]
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
 #![deny(
     clippy::undocumented_unsafe_blocks,
     clippy::missing_safety_doc,
@@ -25,27 +29,48 @@
     forbid(clippy::todo, reason = "production code should not use `todo`")
 )]
 
+<<<<<<< HEAD
 use crate::data::{Slot, Task, TaskId, TaskMap, User, UserId, UserMap};
 use chrono::{DateTime, Utc};
+=======
+use crate::{
+    data::*,
+    integration::{EXIT_REQUESTED, SLOTS, TASKS, USERS},
+};
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
 use clap::{
     Parser,
     builder::{Styles, styling::AnsiColor},
 };
 use miette::{IntoDiagnostic, LabeledSpan, NamedSource, Result, SourceOffset, miette};
+<<<<<<< HEAD
 use parking_lot::Mutex;
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+=======
+use serde::{Serialize, de::DeserializeOwned};
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
 use std::{
     fs::File,
     io::BufReader,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::{Path, PathBuf},
+<<<<<<< HEAD
     sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering::Relaxed},
 };
 use xml_rpc::{Fault, Server};
 
 pub mod algo;
 pub mod data;
+=======
+    sync::atomic::Ordering::Relaxed,
+};
+use xml_rpc::Server;
+
+pub mod algo;
+pub mod data;
+pub mod integration;
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
 
 const STYLE: Styles = Styles::styled()
     .header(AnsiColor::Green.on_default().bold())
@@ -165,6 +190,7 @@ fn main() -> Result<()> {
         }
     }
 
+<<<<<<< HEAD
     let mut users = try_load::<UserMap>(&users, "user")?;
     let _slots = try_load::<Vec<Slot>>(&slots, "time slot")?;
     let mut tasks = try_load::<TaskMap>(&tasks, "task")?;
@@ -174,10 +200,23 @@ fn main() -> Result<()> {
 
     // serde_json::to_writer(File::create(output).into_diagnostic()?, &dbg!(schedule))
     //     .into_diagnostic()?;
+=======
+    let slots = try_load::<SlotMap>(&slots, "slot")?;
+    let tasks = try_load::<TaskMap>(&tasks, "task")?;
+    let users = try_load::<UserMap>(&users, "user")?;
+
+    TaskId::store(tasks.keys().map(|k| k.0 + 1).max().unwrap_or(0));
+    UserId::store(users.keys().map(|k| k.0 + 1).max().unwrap_or(0));
+    SlotId::store(slots.keys().map(|k| k.0 + 1).max().unwrap_or(0));
+    **SLOTS.write() = slots;
+    **TASKS.write() = tasks;
+    **USERS.write() = users;
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
 
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
     let mut server = Server::new();
 
+<<<<<<< HEAD
     static EXIT_REQUESTED: AtomicBool = const { AtomicBool::new(false) };
     static NEXT_USER_ID: AtomicU32 = const { AtomicU32::new(0) };
     static NEXT_TASK_ID: AtomicU64 = const { AtomicU64::new(0) };
@@ -284,11 +323,15 @@ fn main() -> Result<()> {
             },
         );
     }
+=======
+    integration::register(&mut server);
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
 
     let bound_server = server.bind(&socket).unwrap();
     let _marker = RunningHandle::init();
     loop {
         bound_server.poll();
+<<<<<<< HEAD
 
         {
             let mut tasks_to_add = TASKS_TO_ADD.lock();
@@ -319,4 +362,10 @@ fn main() -> Result<()> {
         }
     }
     Ok(())
+=======
+        if EXIT_REQUESTED.load(Relaxed) {
+            break Ok(());
+        }
+    }
+>>>>>>> 04a1808e76feb61ebfb644cf6eff190bd1c24f5a
 }
