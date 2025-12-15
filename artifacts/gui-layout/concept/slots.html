@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sporks Scheduler</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+
+<body>
+    <div class="topnav">
+        <a href="./slots.html" class="current">Shifts</a>
+        <a href="./users/list.html">Employees</a>
+        <a href="./tasks.html">Tasks</a>
+        <a href="./schedule.html">Schedule</a>
+    </div>
+
+    <main>
+        <form>
+            <label>
+                Start
+                <input type="datetime-local" id="start" required />
+            </label>
+            &ndash;
+            <label>
+                End
+                <input type="datetime-local" id="end" required />
+            </label>
+            <label>
+                Title (optional)
+                <input type="text" id="title" placeholder="Shift title..." />
+            </label>
+            <label>
+                Min staff
+                <input type="number" id="min-staff" value="0" min="0" step="1" style="text-align: right" />
+            </label>
+            <label>
+                &nbsp;
+                <input type="submit" value="+" />
+            </label>
+        </form>
+
+        <label>
+            Shifts
+            <table>
+                <thead>
+                    <tr>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th>Title</th>
+                        <th>Min staff</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><input type="datetime-local" value="2025-11-03T11:30"/></td>
+                        <td><input type="datetime-local" value="2025-11-03T13:30"/></td>
+                        <td><input type="text" value="Afternoon" placeholder="Shift title..."/></td>
+                        <td><input type="number" value="3" min="0" step="1" style="text-align: right" /></td>
+                        <td><button class="rm">x</button></td>
+                    </tr>
+                    <tr>
+                        <td><input type="datetime-local" value="2025-11-03T11:30"/></td>
+                        <td><input type="datetime-local" value="2025-11-03T13:30"/></td>
+                        <td><input type="text" value="" placeholder="Shift title..."/></td>
+                        <td><input type="number" value="5" min="0" step="1" style="text-align: right" /></td>
+                        <td><button class="rm">x</button></td>
+                    </tr>
+                    <tr>
+                        <td><input type="datetime-local" value="2025-11-03T11:30"/></td>
+                        <td><input type="datetime-local" value="2025-11-03T13:30"/></td>
+                        <td><input type="text" value="Lunch" placeholder="Shift title..."/></td>
+                        <td><input type="number" value="1" min="0" step="1" style="text-align: right" /></td>
+                        <td><button class="rm">x</button></td>
+                    </tr>
+                    <tr>
+                        <td><input type="datetime-local" value="2025-11-03T11:30"/></td>
+                        <td><input type="datetime-local" value="2025-11-03T13:30"/></td>
+                        <td><input type="text" value="Dinner" placeholder="Shift title..."/></td>
+                        <td><input type="number" value="0" min="0" step="1" style="text-align: right" /></td>
+                        <td><button class="rm">x</button></td>
+                    </tr>
+                    <tr>
+                        <td><input type="datetime-local" value="2025-11-03T11:30"/></td>
+                        <td><input type="datetime-local" value="2025-11-03T13:30"/></td>
+                        <td><input type="text" value="" placeholder="Shift title..."/></td>
+                        <td><input type="number" value="2" min="0" step="1" style="text-align: right" /></td>
+                        <td><button class="rm">x</button></td>
+                    </tr>
+                    <tr>
+                        <td><input type="datetime-local" value="2025-11-03T11:30"/></td>
+                        <td><input type="datetime-local" value="2025-11-03T13:30"/></td>
+                        <td><input type="text" value="" placeholder="Shift title..."/></td>
+                        <td><input type="number" value="5" min="0" step="1" style="text-align: right" /></td>
+                        <td><button class="rm">x</button></td>
+                    </tr>
+                </tbody>
+            </table>
+        </label>
+    </main>
+</body>
+
+</html>

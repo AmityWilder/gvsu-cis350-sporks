@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sporks Scheduler</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        .id {
+            display: block;
+            color: gray;
+            font-size: small;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="topnav">
+        <a href="../slots.html">Shifts</a>
+        <a href="./info.html" class="current">Employees</a>
+        <a href="../tasks.html">Tasks</a>
+        <a href="../schedule.html">Schedule</a>
+    </div>
+
+    <div class="topnav">
+        <a href="./list.html">List</a>
+        <a href="./info.html" class="current">Info</a>
+    </div>
+
+    <main>
+        <label>
+            Employee
+            <select>
+                <option value="7235">7235: Bob Turmoil</option>
+                <option value="3637">3637: Sally Gimbal</option>
+                <option value="3796">3796: Sebastian Green</option>
+                <option value="8646">8646: Carol Windfall</option>
+                <option value="7453">7453: Emily Pallet</option>
+                <option value="1257">1257: George Conga</option>
+                <option value="8674">8674: Samantha Win</option>
+                <option value="2267">2267: Winslow Palace</option>
+                <option value="4448">4448: Jillian Gelatin</option>
+                <option value="3452">3452: Bob Turmoil</option>
+            </select>
+        </label>
+
+        <div>
+            <label>
+                Availability
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rule</th>
+                            <th>Preference</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><input type="text" value="Wednesdays 8am&ndash;5pm" /></td>
+                            <td><button>&minus;&infin;</button><input type="range" value="0.5" min="-1.0" max="1.0" step="0.001" /><button>+&infin;</button></td>
+                            <td><button class="rm">x</button></td>
+                        </tr>
+                        <tr>
+                            <td><input type="text" value="Sundays 11am&ndash;1pm" /></td>
+                            <td><button>&minus;&infin;</button><input type="range" value="-1.0" min="-1.0" max="1.0" step="0.001" /><button>+&infin;</button></td>
+                            <td><button class="rm">x</button></td>
+                        </tr>
+                        <tr>
+                            <td><input type="text" value="This Friday all day" /></td>
+                            <td><button>&minus;&infin;</button><input type="range" value="-1.0" min="-1.0" max="1.0" step="0.001" /><button>+&infin;</button></td>
+                            <td><button class="rm">x</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </label>
+
+            <label>
+                Skills
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Skill</th>
+                            <th>Proficiency</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Cleaning<span class="id">ID 864</span></td>
+                            <td><button>&minus;&infin;</button><input type="range" value="0.5" min="-1.0" max="1.0" step="0.001" /><button>+&infin;</button></td>
+                            <td><button class="rm">x</button></td>
+                        </tr>
+                        <tr>
+                            <td>Register<span class="id">ID 547</span></td>
+                            <td><button>&minus;&infin;</button><input type="range" value="1.0" min="-1.0" max="1.0" step="0.001" /><button>+&infin;</button></td>
+                            <td><button class="rm">x</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </label>
+
+            <label>
+                Coworkers
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Preference</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Emily Pallet<span class="id">ID 7453</span></td>
+                            <td><button>&minus;&infin;</button><input type="range" value="0.25" min="-1.0" max="1.0" step="0.001" /><button>+&infin;</button></td>
+                            <td><button class="rm">x</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </label>
+        </div>
+    </main>
+</body>
+
+</html>

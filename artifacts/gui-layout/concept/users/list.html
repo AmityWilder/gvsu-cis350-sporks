@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sporks Scheduler</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+
+<body>
+    <div class="topnav">
+        <a href="../slots.html">Shifts</a>
+        <a href="./list.html" class="current">Employees</a>
+        <a href="../tasks.html">Tasks</a>
+        <a href="../schedule.html">Schedule</a>
+    </div>
+
+    <div class="topnav">
+        <a href="./list.html" class="current">List</a>
+        <a href="./info.html">Info</a>
+    </div>
+
+    <main>
+        <div style="margin-inline: auto; width: fit-content">
+            <form>
+                <label>
+                    Name
+                    <input type="text" placeholder="Employee..." required>
+                </label>
+                <label>
+                    &nbsp;
+                    <input type="submit" value="+" />
+                </label>
+            </form>
+
+            <label>
+                Employees
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>7235</td><td><input type="text" value="Bob Turmoil"/></td><td><button class="rm">x</button></td></tr>
+                        <tr><td>3637</td><td><input type="text" value="Sally Gimbal"/></td><td><button class="rm">x</button></td></tr>
+                        <tr><td>3796</td><td><input type="text" value="Sebastian Green"/></td><td><button class="rm">x</button></td></tr>
+                        <tr><td>8646</td><td><input type="text" value="Carol Windfall"/></td><td><button class="rm">x</button></td></tr>
+                        <tr><td>7453</td><td><input type="text" value="Emily Pallet"/></td><td><button class="rm">x</button></td></tr>
+                        <tr><td>1257</td><td><input type="text" value="George Conga"/></td><td><button class="rm">x</button></td></tr>
+                        <tr><td>8674</td><td><input type="text" value="Samantha Win"/></td><td><button class="rm">x</button></td></tr>
+                        <tr><td>2267</td><td><input type="text" value="Winslow Palace"/></td><td><button class="rm">x</button></td></tr>
+                        <tr><td>4448</td><td><input type="text" value="Jillian Gelatin"/></td><td><button class="rm">x</button></td></tr>
+                        <tr><td>3452</td><td><input type="text" value="Bob Turmoil"/></td><td><button class="rm">x</button></td></tr>
+                    </tbody>
+                </table>
+            </label>
+        </div>
+    </main>
+</body>
+
+</html>
